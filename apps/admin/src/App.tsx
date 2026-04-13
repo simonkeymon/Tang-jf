@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3002/api';
+
 type UserSummary = {
   id: string;
   email: string;
@@ -27,8 +29,8 @@ export default function App() {
       const token = localStorage.getItem('adminToken') ?? '';
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const [usersRes, statsRes] = await Promise.all([
-        fetch('http://localhost:3002/api/admin/users', { headers }).then((res) => res.json()),
-        fetch('http://localhost:3002/api/admin/dashboard', { headers }).then((res) => res.json()),
+        fetch(`${apiBaseUrl}/admin/users`, { headers }).then((res) => res.json()),
+        fetch(`${apiBaseUrl}/admin/dashboard`, { headers }).then((res) => res.json()),
       ]);
       setUsers(usersRes.users ?? []);
       setStats(statsRes.stats ?? null);
