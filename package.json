@@ -3,6 +3,7 @@
   "name": "@tang/monorepo-root",
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@8.15.9",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,7 +12,7 @@
     "build": "node scripts/run-root-workspace-command.mjs build",
     "typecheck": "node scripts/run-root-workspace-command.mjs typecheck",
     "lint": "eslint . --ext .ts,.tsx,.js",
-    "start:all": "pnpm -w -r run start || true",
+    "start:all": "pnpm --filter @tang/server --filter @tang/web --filter @tang/admin --parallel run start",
     "test": "node scripts/run-root-workspace-command.mjs test",
     "test:watch": "vitest daemon -w --passWithNoTests",
     "test:coverage": "vitest run --coverage"
