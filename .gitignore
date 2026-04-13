@@ -1,0 +1,15 @@
+# Node modules and build outputs
+node_modules/
+dist/
+.pnpm/
+.pnpm-store/
+tmp/
+.cache/
+
+# IDE / editor
+.vscode/
+.DS_Store
+
+# Environment files (example is included, do not commit real env files)
+.env
+.env.*

@@ -1,0 +1,12 @@
+services:
+  web:
+    restart: unless-stopped
+
+  admin:
+    restart: unless-stopped
+
+  server:
+    restart: unless-stopped
+
+  postgres:
+    restart: unless-stopped

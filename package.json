@@ -1,0 +1,30 @@
+{
+  "private": true,
+  "name": "@tang/monorepo-root",
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -w --filter @tang/shared build && pnpm -w --filter @tang/web build && pnpm -w --filter @tang/server build && pnpm -w --filter @tang/admin build",
+    "typecheck": "pnpm -w --filter @tang/shared typecheck && pnpm -w --filter @tang/web typecheck && pnpm -w --filter @tang/server typecheck && pnpm -w --filter @tang/admin typecheck",
+    "lint": "eslint . --ext .ts,.tsx,.js",
+    "start:all": "pnpm -w -r run start || true",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest daemon -w --passWithNoTests",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "eslint": "^8.50.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "prettier": "^3.0.0",
+    "vitest": "4.1.4",
+    "@vitest/coverage-v8": "4.1.4",
+    "supertest": "^6.3.3",
+    "@testing-library/react": "^14.0.0"
+  }
+}

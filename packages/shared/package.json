@@ -1,0 +1,20 @@
+{
+  "name": "@tang/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run -c ./vitest.config.ts"
+  },
+  "dependencies": {
+    "i18next": "^25.5.2",
+    "react-i18next": "^15.7.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

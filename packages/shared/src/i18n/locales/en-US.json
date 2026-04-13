@@ -1,0 +1,19 @@
+{
+  "common": {
+    "appName": "Tang Health Diet",
+    "welcome": "Welcome back"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register"
+  },
+  "plan": {
+    "title": "My Diet Plan"
+  },
+  "recipe": {
+    "title": "Today's Recipes"
+  },
+  "tracking": {
+    "title": "Tracking Center"
+  }
+}

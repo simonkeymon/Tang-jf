@@ -1,0 +1,19 @@
+{
+  "common": {
+    "appName": "Tang 健康饮食",
+    "welcome": "欢迎回来"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册"
+  },
+  "plan": {
+    "title": "我的饮食计划"
+  },
+  "recipe": {
+    "title": "今日食谱"
+  },
+  "tracking": {
+    "title": "记录中心"
+  }
+}
