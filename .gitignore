@@ -14,3 +14,7 @@ tmp/
 .env
 .env.*
 .omx/
+
+# Runtime uploads
+uploads/
+apps/server/uploads/

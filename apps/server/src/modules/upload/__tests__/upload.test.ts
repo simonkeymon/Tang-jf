@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
@@ -36,6 +36,25 @@ async function createImageFile(filename: string, size = 100) {
 }
 
 describe('Upload endpoints', () => {
+  let originalUploadRoot: string | undefined;
+  let uploadRoot: string;
+
+  beforeEach(async () => {
+    originalUploadRoot = process.env.UPLOAD_ROOT;
+    uploadRoot = await mkdtemp(path.join(os.tmpdir(), 'tang-upload-root-'));
+    process.env.UPLOAD_ROOT = uploadRoot;
+  });
+
+  afterEach(async () => {
+    if (originalUploadRoot === undefined) {
+      delete process.env.UPLOAD_ROOT;
+    } else {
+      process.env.UPLOAD_ROOT = originalUploadRoot;
+    }
+
+    await rm(uploadRoot, { recursive: true, force: true });
+  });
+
   it('uploads an image for an authenticated user', async () => {
     const app = createTestApp();
     const token = await registerAndGetToken(app, 'upload@example.com');
