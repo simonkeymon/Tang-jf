@@ -152,13 +152,22 @@ Tang 原本要做的是一个 **面向中文用户的 AI 健康饮食助手**：
 - 权限模型非常初级
 - 只能作为开发态临时入口
 
-### E. 工作区运行入口不完整
+### E. 工作区运行入口已修复，但仍缺少环境说明
 
-命令证据：
+本轮已完成的最小修复：
 
-- `pnpm start:all` 失败：`ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`
+- root `package.json` 现在使用 `pnpm -r --parallel --stream --if-present run start`
+- `apps/admin/package.json` 已补上 `start` 脚本
+- root `package.json` 已声明 `packageManager: pnpm@8.15.9`
 
-这意味着仓库虽然能分别 build、test、单独启动 server，但**没有一个可靠的一键工作区启动入口**。
+当前结果：
+
+- `timeout 15s pnpm start:all` 已能同时拉起 `server / web / admin`
+
+剩余问题：
+
+- 仍缺少 `.env.example` / README 级别的启动说明
+- 端口与 API 地址仍需要通过环境变量显式约定，避免接手者误配
 
 ### F. 前端 / 后台 API 地址硬编码，环境可移植性不足
 
@@ -190,8 +199,8 @@ Tang 原本要做的是一个 **面向中文用户的 AI 健康饮食助手**：
 
 影响：
 
-- 新接手的人按照直觉执行安装命令会直接失败
-- 仓库缺少明确的 package manager 版本约束 / 说明
+- 新接手的人若直接使用系统全局 pnpm，仍可能在 install 阶段踩到 lockfile 版本问题
+- 虽然现在已有 `packageManager` 版本声明，但 README / 环境准备文档仍不完整
 
 ### H. 仍未看到的关键能力
 
