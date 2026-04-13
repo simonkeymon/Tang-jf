@@ -8,11 +8,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "pnpm -w --filter @tang/shared build && pnpm -w --filter @tang/web build && pnpm -w --filter @tang/server build && pnpm -w --filter @tang/admin build",
-    "typecheck": "pnpm -w --filter @tang/shared typecheck && pnpm -w --filter @tang/web typecheck && pnpm -w --filter @tang/server typecheck && pnpm -w --filter @tang/admin typecheck",
+    "build": "node scripts/run-root-workspace-command.mjs build",
+    "typecheck": "node scripts/run-root-workspace-command.mjs typecheck",
     "lint": "eslint . --ext .ts,.tsx,.js",
     "start:all": "pnpm -w -r run start || true",
-    "test": "vitest run --passWithNoTests",
+    "test": "node scripts/run-root-workspace-command.mjs test",
     "test:watch": "vitest daemon -w --passWithNoTests",
     "test:coverage": "vitest run --coverage"
   },
