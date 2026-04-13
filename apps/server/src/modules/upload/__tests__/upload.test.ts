@@ -53,9 +53,7 @@ describe('Upload endpoints', () => {
 
   it('rejects unauthenticated upload requests', async () => {
     const app = createTestApp();
-    const imagePath = await createImageFile('tang-upload-unauth.jpg');
-
-    const res = await request(app).post('/api/upload/image').attach('image', imagePath);
+    const res = await request(app).post('/api/upload/image');
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual({ message: 'Authentication required' });
