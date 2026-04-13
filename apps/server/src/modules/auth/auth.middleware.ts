@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import type { Request, Response } from 'express';
 
 import { AuthError, type AuthService } from './auth.service.js';
 
@@ -7,14 +8,14 @@ export function createAuthMiddleware(authService: AuthService): RequestHandler {
     const authorizationHeader = req.headers.authorization;
 
     if (!authorizationHeader) {
-      res.status(401).json({ message: 'Authentication required' });
+      rejectUnauthorizedRequest(req, res);
       return;
     }
 
     const [scheme, token] = authorizationHeader.split(' ');
 
     if (scheme?.toLowerCase() !== 'bearer' || !token) {
-      res.status(401).json({ message: 'Authentication required' });
+      rejectUnauthorizedRequest(req, res);
       return;
     }
 
@@ -23,11 +24,38 @@ export function createAuthMiddleware(authService: AuthService): RequestHandler {
       next();
     } catch (error) {
       if (error instanceof AuthError) {
-        res.status(error.statusCode).json({ message: error.message });
+        rejectUnauthorizedRequest(req, res, error.statusCode, error.message);
         return;
       }
 
-      res.status(401).json({ message: 'Authentication required' });
+      rejectUnauthorizedRequest(req, res);
     }
   };
+}
+
+function rejectUnauthorizedRequest(
+  req: Request,
+  res: Response,
+  statusCode = 401,
+  message = 'Authentication required',
+) {
+  if (req.complete || req.readableEnded || !isStreamingRequest(req)) {
+    res.status(statusCode).json({ message });
+    return;
+  }
+
+  const respond = () => {
+    if (!res.headersSent) {
+      res.status(statusCode).json({ message });
+    }
+  };
+
+  req.once('end', respond);
+  req.once('error', respond);
+  req.resume();
+}
+
+function isStreamingRequest(req: Request): boolean {
+  const contentType = req.headers['content-type'];
+  return typeof contentType === 'string' && contentType.includes('multipart/form-data');
 }
