@@ -12,7 +12,7 @@
     "build": "node scripts/run-root-workspace-command.mjs build",
     "typecheck": "node scripts/run-root-workspace-command.mjs typecheck",
     "lint": "eslint . --ext .ts,.tsx,.js",
-    "start:all": "pnpm --filter @tang/server --filter @tang/web --filter @tang/admin --parallel run start",
+    "start:all": "pnpm -r --parallel --stream --if-present run start",
     "test": "node scripts/run-root-workspace-command.mjs test",
     "test:watch": "vitest daemon -w --passWithNoTests",
     "test:coverage": "vitest run --coverage"
