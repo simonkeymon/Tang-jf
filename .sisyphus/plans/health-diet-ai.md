@@ -710,7 +710,7 @@ Max Concurrent: 9 (Wave 4)
   - Files: `packages/shared/src/i18n/*`
   - Pre-commit: `tsc --noEmit`
 
-- [ ] 7. UI 设计系统 (组件库基础)
+- [x] 7. UI 设计系统 (组件库基础)
 
   **What to do**:
   - 安装 Tailwind CSS v4 + 配置

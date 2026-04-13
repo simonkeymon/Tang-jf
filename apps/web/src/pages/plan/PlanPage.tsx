@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import { BottomNav } from '../../components/BottomNav';
-import { useTranslation } from '@tang/shared';
+import { Button, Card, PageContainer, useTranslation } from '@tang/shared';
 
 interface Plan {
   id: string;
@@ -63,7 +63,7 @@ export default function PlanPage() {
 
   return (
     <div style={{ paddingBottom: '80px' }}>
-      <main style={{ padding: '2rem', paddingBottom: '6rem' }}>
+      <PageContainer>
         <h1>{t('plan.title')}</h1>
 
         {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
@@ -74,33 +74,17 @@ export default function PlanPage() {
             <p style={{ color: '#666', marginBottom: '2rem' }}>
               创建一个专属的AI饮食计划，帮助您更好地达成目标。
             </p>
-            <button
+            <Button
               onClick={handleGenerate}
               disabled={generating}
-              style={{
-                padding: '0.8rem 2rem',
-                backgroundColor: '#0070f3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '1.1rem',
-                cursor: generating ? 'not-allowed' : 'pointer',
-                opacity: generating ? 0.7 : 1,
-              }}
+              style={{ fontSize: '1.1rem', opacity: generating ? 0.7 : 1 }}
             >
               {generating ? '正在为您生成专属计划...' : '创建饮食计划'}
-            </button>
+            </Button>
           </div>
         ) : (
           <div>
-            <div
-              style={{
-                padding: '1.5rem',
-                backgroundColor: '#f9f9f9',
-                borderRadius: '8px',
-                marginBottom: '2rem',
-              }}
-            >
+            <Card style={{ backgroundColor: '#f9f9f9', marginBottom: '2rem' }}>
               <h2 style={{ marginTop: 0 }}>计划总览</h2>
               <ul style={{ listStyle: 'none', padding: 0, lineHeight: '1.8' }}>
                 <li>
@@ -117,15 +101,9 @@ export default function PlanPage() {
                   {plan.macro_ratio.protein}% : {plan.macro_ratio.fat}%
                 </li>
               </ul>
-            </div>
+            </Card>
 
-            <div
-              style={{
-                padding: '1.5rem',
-                border: '1px solid #eee',
-                borderRadius: '8px',
-              }}
-            >
+            <Card>
               <h3 style={{ marginTop: 0 }}>今日进度</h3>
               <div
                 style={{
@@ -140,10 +118,10 @@ export default function PlanPage() {
               <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
                 今天还没有记录饮食，快去记录吧！
               </p>
-            </div>
+            </Card>
           </div>
         )}
-      </main>
+      </PageContainer>
 
       <BottomNav />
     </div>
