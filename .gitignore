@@ -13,3 +13,4 @@ tmp/
 # Environment files (example is included, do not commit real env files)
 .env
 .env.*
+.omx/
