@@ -1,4 +1,4 @@
-import { integer, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { integer, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 import { users } from './users.js';
 
@@ -10,7 +10,7 @@ export const food_analyses = pgTable('food_analyses', {
   image_url: varchar('image_url', { length: 2048 }).notNull(),
   total_calories: integer('total_calories').notNull(),
   confidence: varchar('confidence', { length: 16 }).notNull(),
-  note: varchar('note', { length: 4000 }),
+  note: text('note'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 

@@ -68,5 +68,7 @@ function sendPlanError(res: Parameters<RequestHandler>[1], error: unknown): void
     return;
   }
 
+  console.error('Plan generation failed:', error);
+
   res.status(500).json({ message: 'Internal server error' });
 }

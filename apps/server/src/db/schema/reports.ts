@@ -1,4 +1,4 @@
-import { integer, pgTable, real, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { integer, pgTable, real, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 import { users } from './users.js';
 
@@ -14,5 +14,5 @@ export const reports = pgTable('reports', {
   execution_rate: real('execution_rate').notNull(),
   actual_calories: integer('actual_calories').notNull(),
   target_calories: integer('target_calories').notNull(),
-  ai_summary: varchar('ai_summary', { length: 4000 }).notNull(),
+  ai_summary: text('ai_summary').notNull(),
 });

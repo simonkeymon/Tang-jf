@@ -8,6 +8,13 @@
       "when": 1775875812515,
       "tag": "0000_rainy_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776369529397,
+      "tag": "0001_expand_ai_text_columns",
+      "breakpoints": true
     }
   ]
 }

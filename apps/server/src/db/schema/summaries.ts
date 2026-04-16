@@ -1,4 +1,4 @@
-import { integer, pgTable, real, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { integer, pgTable, real, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 import { users } from './users.js';
 
@@ -14,7 +14,7 @@ export const summaries = pgTable('summaries', {
   calorie_delta: integer('calorie_delta').notNull(),
   weight_kg: real('weight_kg'),
   streak: integer('streak').notNull(),
-  ai_feedback: varchar('ai_feedback', { length: 4000 }).notNull(),
-  tomorrow_preview: varchar('tomorrow_preview', { length: 4000 }).notNull(),
+  ai_feedback: text('ai_feedback').notNull(),
+  tomorrow_preview: text('tomorrow_preview').notNull(),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
