@@ -23,11 +23,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await api.post('/auth/forgot-password', { email });
       setToken(response.data.resetToken ?? '');
-      setMessage(
-        response.data.resetToken
-          ? `已生成重置 token：${response.data.resetToken}`
-          : '如果该邮箱存在，系统已创建重置凭证。',
-      );
+      setMessage('如果该邮箱存在，系统已创建重置凭证。请继续下一步设置新密码。');
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -53,7 +49,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthShell
       title="找回密码"
-      subtitle="当前版本提供开发态可用的密码重置流程：先申请 token，再提交新密码完成重置。"
+      subtitle="通过邮箱申请重置凭证，再设置一个新的登录密码。"
       footer={
         <p className="muted">
           已想起密码？ <Link to="/login">回到登录页</Link>
@@ -64,7 +60,7 @@ export default function ForgotPasswordPage() {
       {error ? <div className="banner banner-error">{error}</div> : null}
 
       <form className="form-grid" onSubmit={handleRequestReset}>
-        <h2 style={{ margin: 0 }}>第一步：申请重置 token</h2>
+        <h2 style={{ margin: 0 }}>第一步：申请重置凭证</h2>
         <label className="field">
           <span className="field-label">邮箱</span>
           <Input
@@ -83,11 +79,11 @@ export default function ForgotPasswordPage() {
       <form className="form-grid" onSubmit={handleResetPassword}>
         <h2 style={{ margin: 0 }}>第二步：设置新密码</h2>
         <label className="field">
-          <span className="field-label">重置 token</span>
+          <span className="field-label">重置口令</span>
           <Input
             value={token}
             onChange={(event) => setToken(event.target.value)}
-            placeholder="开发环境会直接返回 token"
+            placeholder="输入收到的重置口令"
             required
           />
         </label>

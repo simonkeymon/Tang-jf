@@ -35,8 +35,8 @@ export default function LoginPage() {
 
   return (
     <AuthShell
-      title="登录继续你的饮食计划"
-      subtitle="修复了浏览器跨域鉴权后，你现在可以直接注册、登录并保持会话。"
+      title="登录继续今天的饮食安排"
+      subtitle="回到你的计划、食谱与每日记录，让执行保持连贯。"
       footer={
         <p className="muted">
           还没有账号？ <Link to="/register">立即注册</Link> ·{' '}

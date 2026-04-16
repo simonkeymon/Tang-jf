@@ -1,7 +1,3 @@
-module.exports = {
-  schema: './src/db/schema',
-  out: './drizzle/migrations',
-  connectionString: process.env.DATABASE_URL,
-  driver: 'pglite',
-  dialect: 'postgresql',
-};
+import { buildConfig } from './src/db/drizzle-config.shared.mjs';
+
+export default buildConfig();

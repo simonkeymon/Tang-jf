@@ -42,8 +42,8 @@ export default function RegisterPage() {
 
   return (
     <AuthShell
-      title="创建你的专属健康账号"
-      subtitle="完成注册后会直接进入首页，引导你补齐资料、生成计划并开始打卡。"
+      title="创建你的健康饮食账号"
+      subtitle="注册完成后即可保存资料、生成计划，并把每天的吃与做持续记录下来。"
       footer={
         <p className="muted">
           已有账号？ <Link to="/login">去登录</Link>
@@ -51,9 +51,9 @@ export default function RegisterPage() {
       }
     >
       <div>
-        <h2 style={{ margin: 0 }}>开启 7 天可见变化的饮食节奏</h2>
+        <h2 style={{ margin: 0 }}>从今天开始建立稳定节奏</h2>
         <p className="page-subtitle" style={{ marginTop: 8 }}>
-          当前版本聚焦 MVP 核心闭环：资料 → 计划 → 食谱 → 打卡 → 总结。
+          先设定目标和身体数据，再让系统为你安排更合适的饮食路径。
         </p>
       </div>
 

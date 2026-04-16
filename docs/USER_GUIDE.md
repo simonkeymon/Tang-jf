@@ -74,12 +74,10 @@ AI_CONFIG_SECRET=change-me-in-production
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
 UPLOAD_ROOT=uploads
 ADMIN_EMAILS=admin@example.com
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_USER=tang
-DB_PASSWORD=tang
-DB_NAME=tang
-PGLITE_DATA_DIR=.data/pglite
+PERSISTENCE_MODE=pg
+DATABASE_URL=postgresql://tang:tang@127.0.0.1:5432/tang
+DB_CONNECT_RETRIES=10
+DB_CONNECT_DELAY_MS=1500
 ```
 
 说明：
@@ -90,8 +88,11 @@ PGLITE_DATA_DIR=.data/pglite
 - `ALLOWED_ORIGINS`：允许的浏览器来源
 - `UPLOAD_ROOT`：上传图片目录
 - `ADMIN_EMAILS`：管理员邮箱白名单
-- `DB_*`：PostgreSQL 连接参数
-- `PGLITE_DATA_DIR`：本地嵌入式 PostgreSQL 兼容存储目录
+- `PERSISTENCE_MODE`：推荐设置为 `pg`，显式使用 PostgreSQL
+- `DATABASE_URL`：推荐的 PostgreSQL 连接串
+- `DB_CONNECT_RETRIES` / `DB_CONNECT_DELAY_MS`：服务启动时等待数据库就绪的重试参数
+- `DB_*`：未使用 `DATABASE_URL` 时可用的 PostgreSQL 分项配置
+- `PGLITE_DATA_DIR`（仅备用模式使用）：仅在 `PERSISTENCE_MODE=pglite` 时启用的备用本地存储目录
 
 ### 4.2 Web
 
@@ -130,9 +131,15 @@ pnpm start:all
 - API：`http://localhost:3002`
 - Health：`http://localhost:3002/health`
 
-### 5.1 启动 PostgreSQL（推荐）
+### 5.1 启动 PostgreSQL（主推荐）
 
 如果本机安装了 Docker，可直接执行：
+
+```bash
+pnpm db:up
+```
+
+或：
 
 ```bash
 docker compose up -d postgres
@@ -140,9 +147,9 @@ docker compose up -d postgres
 
 说明：
 
-- 配置数据库后，服务端会在启动时自动执行迁移
-- 如果未配置外部 PostgreSQL，服务默认回退到 **PGlite 持久化模式**
-- 只有在测试或显式指定内存模式时才会退回纯内存
+- `apps/server/.env` 默认示例已经指向本地 PostgreSQL
+- 服务端启动时会自动等待数据库就绪并执行迁移
+- PGlite 仍可作为备用方案，但不再是主推荐持久化链路
 
 如果只想启动单个服务：
 
@@ -506,14 +513,14 @@ pnpm lint
 
 如果没有系统级 PostgreSQL，Tang 会自动使用：
 
-- `PGLITE_DATA_DIR`
+- `PGLITE_DATA_DIR`（仅备用模式使用）
 
 来启动一个**嵌入式 PostgreSQL 兼容数据库**，同样支持业务数据持久化。
 
 你可以通过健康检查确认：
 
 - `persistence: "postgres"`
-- `engine: "pglite"`
+- `engine: "pg"`
 
 #### B. 内存模式（兜底）
 

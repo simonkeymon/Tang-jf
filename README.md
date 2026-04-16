@@ -89,12 +89,10 @@ AI_CONFIG_SECRET=change-me-in-production
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
 UPLOAD_ROOT=uploads
 ADMIN_EMAILS=admin@example.com
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_USER=tang
-DB_PASSWORD=tang
-DB_NAME=tang
-PGLITE_DATA_DIR=.data/pglite
+PERSISTENCE_MODE=pg
+DATABASE_URL=postgresql://tang:tang@127.0.0.1:5432/tang
+DB_CONNECT_RETRIES=10
+DB_CONNECT_DELAY_MS=1500
 ```
 
 #### `apps/web/.env`
@@ -109,7 +107,13 @@ VITE_API_BASE_URL=http://localhost:3002/api
 VITE_API_BASE_URL=http://localhost:3002/api
 ```
 
-### 4) 启动项目
+### 4) 启动 PostgreSQL
+
+```bash
+pnpm db:up
+```
+
+### 5) 启动项目
 
 ```bash
 pnpm start:all
@@ -126,41 +130,41 @@ pnpm start:all
 
 ## 数据库说明
 
-Tang 支持两种持久化方式：
+Tang 默认使用 PostgreSQL 作为主持久化方案。
 
-### 方案 A：PostgreSQL（推荐）
+### 方案 A：PostgreSQL（主推荐）
 
-如果你已经有 PostgreSQL，只需要在 `apps/server/.env` 配置以下变量：
+本地开发推荐直接启动仓库自带的 PostgreSQL：
 
-```env
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_USER=tang
-DB_PASSWORD=tang
-DB_NAME=tang
+```bash
+pnpm db:up
 ```
 
-或者直接使用：
+或：
 
-```env
-DATABASE_URL=postgresql://user:password@host:5432/dbname
+```bash
+docker compose up -d postgres
 ```
 
-服务启动时会自动执行 `apps/server/drizzle/migrations` 下的迁移。
-
-### 方案 B：PGlite（开箱即用）
-
-如果没有外部 PostgreSQL，服务会自动回退到本地文件数据库：
+环境变量推荐优先使用：
 
 ```env
-PGLITE_DATA_DIR=.data/pglite
+PERSISTENCE_MODE=pg
+DATABASE_URL=postgresql://tang:tang@127.0.0.1:5432/tang
 ```
 
-这意味着：
+服务启动时会自动等待数据库可用并执行 `apps/server/drizzle/migrations` 下的迁移。
 
-- 不安装 PostgreSQL 也能直接跑起来
-- 服务重启后业务数据依然会保留
-- 适合本地开发、体验环境、小型单机部署
+### 方案 B：PGlite（备用兜底）
+
+如果本地确实没有 PostgreSQL，可切换到文件型本地数据库：
+
+```env
+PERSISTENCE_MODE=pglite
+PGLITE_DATA_DIR=~/.tang/pglite
+```
+
+这更适合临时体验或单机兜底，不再作为主推荐链路。
 
 可通过健康检查确认当前模式：
 
@@ -175,7 +179,7 @@ curl http://localhost:3002/health
   "ok": true,
   "name": "tang-server",
   "persistence": "postgres",
-  "engine": "pglite"
+  "engine": "pg"
 }
 ```
 

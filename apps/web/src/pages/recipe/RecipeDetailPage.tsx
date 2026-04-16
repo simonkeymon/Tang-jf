@@ -135,6 +135,6 @@ export default function RecipeDetailPage() {
 
 function formatGenerationMode(meta: RecipeGenerationMeta) {
   if (meta.mode === 'ai') return '真实 AI';
-  if (meta.mode === 'mock') return '模拟输出';
-  return '本地兜底';
+  if (meta.mode === 'mock') return '系统生成';
+  return '备用方案';
 }

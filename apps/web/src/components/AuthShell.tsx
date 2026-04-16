@@ -15,13 +15,13 @@ export function AuthShell({
     <div className="auth-shell">
       <div className="auth-card">
         <section className="auth-panel auth-brand">
-          <span className="pill">Tang · AI 营养教练</span>
+          <span className="pill">Tang · 健康饮食助手</span>
           <h1>{title}</h1>
           <p>{subtitle}</p>
           <ul className="auth-list">
-            <li>围绕体重、食谱、购物清单和总结构建日常陪跑流程。</li>
-            <li>先完善资料，再一键生成计划与今日食谱。</li>
-            <li>所有功能保持现有 React + Express + pnpm monorepo 框架。</li>
+            <li>围绕体重、计划、食谱与打卡建立稳定的日常节奏。</li>
+            <li>先完善资料，再生成适合你的饮食安排。</li>
+            <li>把今天该吃什么、做到了多少，一次看清楚。</li>
           </ul>
         </section>
 

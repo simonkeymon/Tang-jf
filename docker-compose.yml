@@ -5,6 +5,11 @@ services:
       POSTGRES_USER: tang
       POSTGRES_PASSWORD: tang
       POSTGRES_DB: tang
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tang -d tang']
+      interval: 5s
+      timeout: 5s
+      retries: 12
     ports:
       - '5432:5432'
     volumes:
@@ -31,16 +36,16 @@ services:
     environment:
       PORT: 3002
       HOST: 0.0.0.0
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: tang
-      DB_PASSWORD: tang
-      DB_NAME: tang
+      PERSISTENCE_MODE: pg
+      DATABASE_URL: postgresql://tang:tang@postgres:5432/tang
+      DB_CONNECT_RETRIES: 20
+      DB_CONNECT_DELAY_MS: 1500
       JWT_SECRET: change-me
       AI_CONFIG_SECRET: change-me
       ADMIN_EMAILS: admin@example.com
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - '3002:3002'
 

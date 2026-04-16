@@ -358,7 +358,7 @@ export default function HomePage() {
         <Card className="surface-card feature-spotlight">
           <div className="page-header" style={{ marginBottom: 0 }}>
             <div className="section-intro">
-              <span className="eyebrow">AI Vision</span>
+              <span className="eyebrow">拍照识别</span>
               <h3>把拍照识别热量变成首页上的自然入口。</h3>
               <p className="page-subtitle">
                 外卖、外食或自做饭时，不必先想记录方式，直接拍一张图就能进入估算流程。
@@ -372,7 +372,7 @@ export default function HomePage() {
           </div>
           <div className="stats-grid">
             <MetricCard label="适用场景" value="外卖 / 外食 / 自做饭" hint="把不规则饮食也纳入每日记录。" />
-            <MetricCard label="当前能力" value="食物识别 + 热量估算" hint="支持快速查看食物组成与总热量。" />
+            <MetricCard label="识别能力" value="食物识别 + 热量估算" hint="支持快速查看食物组成与总热量。" />
             <MetricCard label="入口位置" value="首页 + 底部导航" hint="需要时始终在最顺手的位置。" />
           </div>
         </Card>

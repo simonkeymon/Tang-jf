@@ -44,13 +44,13 @@ export default function AIConfigPage() {
   async function handleTestConnection() {
     if (!baseUrl || !model || (!apiKey && !maskedKey)) {
       setStatus('连接失败');
-      setError('请先填写 Base URL、模型和 API Key');
+      setError('请先填写 连接地址、模型和 访问密钥');
       return;
     }
 
     if (!apiKey) {
       setStatus('连接失败');
-      setError('测试连接时请重新输入一次 API Key。保存配置时可以留空保留旧 Key。');
+      setError('测试连接时请重新输入一次 访问密钥。保存配置时可以留空保留旧 Key。');
       return;
     }
 
@@ -118,10 +118,10 @@ export default function AIConfigPage() {
     <PageContainer className="page-stack">
       <header className="page-header">
         <div className="section-intro">
-          <span className="eyebrow">AI 基础设施</span>
-          <h1 className="page-title">让模型接入保持可替换，但界面依然稳定。</h1>
+          <span className="eyebrow">AI 设置</span>
+          <h1 className="page-title">在同一处管理模型连接、导出与验证。</h1>
           <p className="page-subtitle">
-            把连接、模型、导出与验证提示收束到同一套视觉节奏里，减少“配置页像后台”的割裂感。
+            把连接地址、模型、密钥与导出放在同一处管理，减少来回查找。
           </p>
         </div>
         <span className={`pill ${status === '已连接' ? 'status-ok' : 'status-warning'}`}>
@@ -135,16 +135,16 @@ export default function AIConfigPage() {
       <section className="section-shell">
         <div className="stats-grid">
           <StatusTile label="连接状态" value={status} hint="先验证连接，再保存配置。" />
-          <StatusTile label="当前模型" value={model} hint="支持输入任意 OpenAI 兼容模型名。" />
-          <StatusTile label="来源模式" value={isCustom ? '自定义' : '平台默认'} hint="决定是否走你的专属接口。" />
+          <StatusTile label="模型名称" value={model} hint="支持填写兼容的模型名称。" />
+          <StatusTile label="接入方式" value={isCustom ? '自定义' : '默认配置'} hint="决定使用你的专属配置还是系统默认配置。" />
         </div>
       </section>
 
       <section className="content-grid settings-grid">
         <Card className="surface-card surface-subtle">
           <div className="section-intro">
-            <span className="eyebrow">连接配置</span>
-            <h2>把接口、Key 与模型组织成一组清晰控件。</h2>
+            <span className="eyebrow">模型连接</span>
+            <h2>把连接信息整理成更容易理解的步骤。</h2>
             <p className="page-subtitle">
               先选模式，再填写 endpoint 和模型；所有配置都保留当前业务逻辑，只做视觉与可读性优化。
             </p>
@@ -163,18 +163,18 @@ export default function AIConfigPage() {
             </label>
 
             <label className="field">
-              <span className="field-label">Base URL</span>
+              <span className="field-label">连接地址</span>
               <Input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
             </label>
           </div>
 
           <label className="field">
-            <span className="field-label">API Key</span>
+            <span className="field-label">访问密钥</span>
             <Input
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={maskedKey ? '留空则保留当前 Key' : '输入 API Key'}
+              placeholder={maskedKey ? '留空则保留当前 Key' : '输入 访问密钥'}
             />
             <p className="field-hint">
               {maskedKey
@@ -184,7 +184,7 @@ export default function AIConfigPage() {
           </label>
 
           <label className="field">
-            <span className="field-label">模型（可自定义）</span>
+            <span className="field-label">模型名称</span>
             <Input
               list="ai-model-suggestions"
               value={model}
@@ -200,7 +200,7 @@ export default function AIConfigPage() {
               <option value="claude-3-5-sonnet-latest" />
               <option value="qwen-plus" />
             </datalist>
-            <p className="field-hint">你可以直接输入任何兼容 OpenAI 接口的自定义模型名。</p>
+            <p className="field-hint">你可以直接输入要使用的兼容模型名称。</p>
           </label>
 
           <div className="button-row">
@@ -221,7 +221,7 @@ export default function AIConfigPage() {
             </div>
             <div className="stack">
               <div className="status-tile">
-                <p className="metric-label">Base URL</p>
+                <p className="metric-label">连接地址</p>
                 <span className="code-chip">{baseUrl}</span>
               </div>
               <div className="status-tile">

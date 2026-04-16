@@ -255,8 +255,8 @@ export default function App() {
 
       <section className="content-grid admin-auth-grid">
         <Card className="surface-card admin-hero">
-          <span className="pill">Stripe 风格后台面板</span>
-          <h2>{needsBootstrap ? '初始化首个管理员' : '后台总控台'}</h2>
+          <span className="pill">Tang 管理面板</span>
+          <h2>{needsBootstrap ? '初始化首个管理员' : '管理总览'}</h2>
           <p className="page-subtitle">
             {needsBootstrap
               ? '首次进入后台时，请先创建管理员账号。首个注册的账号会自动成为管理员。'
@@ -265,7 +265,7 @@ export default function App() {
           <ul className="auth-list">
             <li>统一平台默认 AI 配置，作为普通用户未配置自定义模型时的回退来源。</li>
             <li>快速查看用户 streak、计划覆盖情况与今日活跃表现。</li>
-            <li>保持现有认证与数据加载逻辑，仅对视觉系统做统一重构。</li>
+            <li>统一查看用户状态、计划覆盖与平台模型配置。</li>
           </ul>
         </Card>
 

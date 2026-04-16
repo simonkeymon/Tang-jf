@@ -264,13 +264,13 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function formatGenerationMode(meta: RecipeGenerationMeta) {
   if (meta.mode === 'ai') return '真实 AI 生成';
-  if (meta.mode === 'mock') return '模拟输出';
-  return '本地智能兜底';
+  if (meta.mode === 'mock') return '系统生成';
+  return '备用方案';
 }
 
 function formatGenerationBadge(meta: RecipeGenerationMeta) {
   if (meta.mode === 'ai') return 'AI';
-  if (meta.mode === 'mock') return '模拟';
+  if (meta.mode === 'mock') return '系统';
   return '兜底';
 }
 
