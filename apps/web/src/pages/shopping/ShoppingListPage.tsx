@@ -135,7 +135,7 @@ export default function ShoppingListPage() {
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="surface-card">
+    <div className="surface-card metric-card">
       <p className="metric-label">{label}</p>
       <p className="metric-value" style={{ fontSize: '1.25rem' }}>
         {value}

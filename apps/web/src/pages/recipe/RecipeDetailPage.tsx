@@ -5,6 +5,14 @@ import { Button, Card, PageContainer } from '@tang/shared';
 import { api } from '../../lib/api';
 import { getErrorMessage } from '../../utils/error-handler';
 
+type RecipeGenerationMeta = {
+  mode: 'ai' | 'mock' | 'fallback';
+  provider: 'openai-compatible' | 'mock';
+  model: string;
+  generated_at: string;
+  reason?: string;
+};
+
 type RecipeDetail = {
   id: string;
   title: string;
@@ -19,6 +27,7 @@ type RecipeDetail = {
     fiber: number;
   };
   cook_time_minutes: number;
+  generation_meta?: RecipeGenerationMeta;
 };
 
 export default function RecipeDetailPage() {
@@ -55,6 +64,12 @@ export default function RecipeDetailPage() {
           <p className="page-subtitle">
             {recipe.cuisine_type} · 约 {recipe.cook_time_minutes} 分钟
           </p>
+          {recipe.generation_meta ? (
+            <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
+              生成来源：{formatGenerationMode(recipe.generation_meta)} · 模型：
+              {recipe.generation_meta.model}
+            </p>
+          ) : null}
         </div>
         <Link to="/recipe/today">
           <Button type="button" variant="ghost">
@@ -116,4 +131,10 @@ export default function RecipeDetailPage() {
       </div>
     </PageContainer>
   );
+}
+
+function formatGenerationMode(meta: RecipeGenerationMeta) {
+  if (meta.mode === 'ai') return '真实 AI';
+  if (meta.mode === 'mock') return '模拟输出';
+  return '本地兜底';
 }

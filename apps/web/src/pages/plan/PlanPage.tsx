@@ -86,13 +86,14 @@ export default function PlanPage() {
   }
 
   if (loading) {
-    return <PageContainer>加载计划中...</PageContainer>;
+    return <PageContainer className="page-stack">加载计划中...</PageContainer>;
   }
 
   return (
-    <PageContainer>
-      <div className="page-header">
-        <div>
+    <PageContainer className="page-stack">
+      <header className="page-header">
+        <div className="section-intro">
+          <span className="eyebrow">30 天饮食策略</span>
           <h1 className="page-title">{t('plan.title')}</h1>
           <p className="page-subtitle">围绕你的目标生成 30 天饮食策略，并衔接今日食谱。</p>
         </div>
@@ -108,14 +109,15 @@ export default function PlanPage() {
             </Button>
           ) : null}
         </div>
-      </div>
+      </header>
 
       {error ? <div className="banner banner-error">{error}</div> : null}
       {message ? <div className="banner banner-success">{message}</div> : null}
 
       {!plan ? (
-        <Card className="surface-card">
+        <Card className="surface-card surface-subtle">
           <div className="empty-state">
+            <span className="eyebrow">计划尚未开始</span>
             <h2>你还没有饮食计划</h2>
             <p className="muted">先在个人资料里完善身体数据，再让 AI 为你生成专属计划。</p>
             <div className="button-row" style={{ justifyContent: 'center' }}>
@@ -131,39 +133,89 @@ export default function PlanPage() {
           </div>
         </Card>
       ) : (
-        <div className="content-grid">
-          <Card className="surface-card">
-            <h2 style={{ marginBottom: 16 }}>计划总览</h2>
-            <div className="stats-grid">
-              <MetricCard label="目标" value={translateGoal(plan.goal)} />
-              <MetricCard label="每日热量" value={`${plan.daily_calorie_target} kcal`} />
-              <MetricCard label="周期" value={`${plan.duration_days} 天`} />
-              <MetricCard
-                label="宏量比例"
-                value={`${plan.macro_ratio.carbohydrate}/${plan.macro_ratio.protein}/${plan.macro_ratio.fat}`}
-              />
-            </div>
-          </Card>
-
-          <Card className="surface-card">
-            <h2 style={{ marginBottom: 16 }}>执行阶段</h2>
-            <div className="stack">
-              {plan.phase_descriptions.map((phase) => (
-                <div key={phase} className="table-like-row">
-                  <span>{phase}</span>
-                  <span className="pill">阶段</span>
+        <>
+          <section className="section-shell">
+            <Card className="surface-card plan-hero-panel">
+              <div className="plan-hero-grid">
+                <div className="section-intro">
+                  <span className="eyebrow">计划总览</span>
+                  <h2 className="section-title">围绕 {translateGoal(plan.goal)} 的热量与宏量分配。</h2>
+                  <p className="page-subtitle">
+                    用轻量但清晰的结构，把周期、热量和营养比例放到同一个阅读节奏里，便于今天直接行动。
+                  </p>
+                  <div className="pill-row">
+                    <span className="pill">周期 {plan.duration_days} 天</span>
+                    <span className="pill">目标 {translateGoal(plan.goal)}</span>
+                    <span className="pill">{plan.daily_calorie_target} kcal / 天</span>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </Card>
 
-          <Card className="surface-card" style={{ gridColumn: '1 / -1' }}>
-            <h2>AI 计划说明</h2>
-            <div className="stack" style={{ gap: 16 }}>
-              {renderPlanNotes(plan.notes)}
-            </div>
-          </Card>
-        </div>
+                <div className="stats-grid">
+                  <MetricCard label="目标" value={translateGoal(plan.goal)} />
+                  <MetricCard label="每日热量" value={`${plan.daily_calorie_target} kcal`} />
+                  <MetricCard label="周期" value={`${plan.duration_days} 天`} />
+                  <MetricCard
+                    label="宏量比例"
+                    value={`${plan.macro_ratio.carbohydrate}/${plan.macro_ratio.protein}/${plan.macro_ratio.fat}`}
+                  />
+                </div>
+              </div>
+            </Card>
+          </section>
+
+          <section className="section-card-grid">
+            <Card className="surface-card timeline-card surface-subtle">
+              <div className="section-intro">
+                <span className="eyebrow">执行阶段</span>
+                <h3>按阶段推进，而不是只看一天的结果。</h3>
+              </div>
+              <div className="timeline-list">
+                {plan.phase_descriptions.map((phase, index) => (
+                  <div key={phase} className="table-like-row timeline-item">
+                    <div>
+                      <p className="timeline-title">阶段 {index + 1}</p>
+                      <p className="timeline-copy">{phase}</p>
+                    </div>
+                    <span className="pill">阶段</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="surface-card">
+              <div className="section-intro">
+                <span className="eyebrow">营养结构</span>
+                <h3>把宏量比例读成可执行的取舍。</h3>
+              </div>
+              <div className="macro-grid">
+                <MacroCard label="碳水" value={`${plan.macro_ratio.carbohydrate}%`} />
+                <MacroCard label="蛋白" value={`${plan.macro_ratio.protein}%`} />
+                <MacroCard label="脂肪" value={`${plan.macro_ratio.fat}%`} />
+              </div>
+              <div className="subsection-divider" />
+              <div className="button-row">
+                <Button type="button" onClick={handleGenerateRecipe} disabled={working !== null}>
+                  {working === 'recipe' ? '生成中...' : '生成今日食谱'}
+                </Button>
+                <Link to="/profile">
+                  <Button type="button" variant="secondary">
+                    回到资料页调整目标
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          </section>
+
+          <section className="section-shell">
+            <Card className="surface-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="section-intro">
+                <span className="eyebrow">AI 计划说明</span>
+                <h3>把生成结果整理成更容易复盘的结构。</h3>
+              </div>
+              <div className="notes-prose">{renderPlanNotes(plan.notes)}</div>
+            </Card>
+          </section>
+        </>
       )}
     </PageContainer>
   );
@@ -171,11 +223,18 @@ export default function PlanPage() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="surface-card">
+    <div className="surface-card metric-card surface-subtle">
       <p className="metric-label">{label}</p>
-      <p className="metric-value" style={{ fontSize: '1.3rem' }}>
-        {value}
-      </p>
+      <p className="metric-value">{value}</p>
+    </div>
+  );
+}
+
+function MacroCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="macro-card">
+      <p className="metric-label">{label}</p>
+      <p className="metric-value">{value}</p>
     </div>
   );
 }
@@ -190,31 +249,21 @@ function renderPlanNotes(notes: string) {
   const blocks = parseMarkdownBlocks(notes);
 
   if (blocks.length === 0) {
-    return <p className="muted" style={{ marginBottom: 0 }}>AI 暂未返回详细说明。</p>;
+    return <p className="muted notes-paragraph">AI 暂未返回详细说明。</p>;
   }
 
   return blocks.map((block, index) => {
     if (block.type === 'heading') {
-      return (
-        <div key={`${block.type}-${index}`}>
-          <h3 style={{ margin: 0 }}>{block.text}</h3>
-        </div>
-      );
+      return <h3 key={`${block.type}-${index}`}>{block.text}</h3>;
     }
 
     if (block.type === 'list') {
       return (
-        <Card
-          key={`${block.type}-${index}`}
-          className="surface-card"
-          style={{ padding: 16, background: 'rgba(247, 250, 255, 0.92)' }}
-        >
-          <ul className="list-reset" style={{ display: 'grid', gap: 10 }}>
+        <Card key={`${block.type}-${index}`} className="surface-card notes-list-card">
+          <ul className="list-reset note-list">
             {block.items.map((item, itemIndex) => (
-              <li key={`${item}-${itemIndex}`} style={{ display: 'flex', gap: 10 }}>
-                <span className="pill" style={{ padding: '4px 10px' }}>
-                  {itemIndex + 1}
-                </span>
+              <li key={`${item}-${itemIndex}`} className="note-list-item">
+                <span className="note-step">{itemIndex + 1}</span>
                 <span className="muted" style={{ color: '#23324c' }}>
                   {item}
                 </span>
@@ -226,11 +275,7 @@ function renderPlanNotes(notes: string) {
     }
 
     return (
-      <p
-        key={`${block.type}-${index}`}
-        className="muted"
-        style={{ margin: 0, lineHeight: 1.8, color: '#23324c' }}
-      >
+      <p key={`${block.type}-${index}`} className="notes-paragraph">
         {block.text}
       </p>
     );

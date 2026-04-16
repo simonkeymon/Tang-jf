@@ -67,7 +67,7 @@ describe('Recipe favorites and swap endpoints', () => {
     expect(emptyListRes.body.recipes).toHaveLength(0);
   });
 
-  it('swaps recipe with a new title and similar calories', async () => {
+  it('swaps recipe with a new title, new ingredients, and similar calories', async () => {
     const app = createTestApp();
     const token = await registerAndGetToken(app, 'swap@example.com');
     const recipeId = await createRecipe(app, token);
@@ -76,16 +76,32 @@ describe('Recipe favorites and swap endpoints', () => {
       .get(`/api/recipe/${recipeId}`)
       .set('Authorization', `Bearer ${token}`);
 
-    const swapRes = await request(app)
+    const firstSwap = await request(app)
       .post(`/api/recipe/${recipeId}/swap`)
       .set('Authorization', `Bearer ${token}`);
 
-    expect(swapRes.status).toBe(200);
-    expect(swapRes.body.recipe.title).not.toBe(before.body.recipe.title);
+    expect(firstSwap.status).toBe(200);
+    expect(firstSwap.body.recipe.title).not.toBe(before.body.recipe.title);
+    expect(firstSwap.body.recipe.ingredients.map((item: { name: string }) => item.name)).not.toEqual(
+      before.body.recipe.ingredients.map((item: { name: string }) => item.name),
+    );
+    expect(firstSwap.body.recipe.generation_meta.mode).toBe('mock');
+
     const beforeCalories = before.body.recipe.nutrition.calories;
-    const afterCalories = swapRes.body.recipe.nutrition.calories;
+    const afterCalories = firstSwap.body.recipe.nutrition.calories;
     expect(Math.abs(afterCalories - beforeCalories)).toBeLessThanOrEqual(
       Math.ceil(beforeCalories * 0.15),
     );
+
+    const secondSwap = await request(app)
+      .post(`/api/recipe/${firstSwap.body.recipe.id}/swap`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(secondSwap.status).toBe(200);
+    expect(secondSwap.body.recipe.title).not.toBe(firstSwap.body.recipe.title);
+    expect(secondSwap.body.recipe.ingredients.map((item: { name: string }) => item.name)).not.toEqual(
+      firstSwap.body.recipe.ingredients.map((item: { name: string }) => item.name),
+    );
+    expect(secondSwap.body.recipe.generation_meta.mode).toBe('mock');
   });
 });

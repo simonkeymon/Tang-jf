@@ -44,6 +44,7 @@ describe('Recipe endpoints', () => {
     expect(res.body.recipePlan.meals[0].ingredients[0].name).toMatch(/[\u4e00-\u9fa5]/);
     expect(res.body.recipePlan.total_calories).toBeGreaterThanOrEqual(2440);
     expect(res.body.recipePlan.total_calories).toBeLessThanOrEqual(2982);
+    expect(res.body.recipePlan.generation_meta.mode).toBe('mock');
   });
 
   it('returns today recipe after generation', async () => {
@@ -106,10 +107,134 @@ describe('Recipe endpoints', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ date: '2026-04-16' });
 
-    const names = res.body.recipePlan.meals.flatMap(
-      (meal: { ingredients: Array<{ name: string }> }) => meal.ingredients.map((item) => item.name),
-    );
+    const mealText = res.body.recipePlan.meals
+      .flatMap((meal: {
+        title: string;
+        ingredients: Array<{ name: string }>;
+      }) => [meal.title, ...meal.ingredients.map((item) => item.name)])
+      .join('|');
 
-    expect(names).not.toContain('鲈鱼');
+    expect(mealText).not.toMatch(/鲈鱼|三文鱼|鳕鱼|鱼片|鱼柳|鱼肉|海鲜|虾仁/);
+  });
+
+  it('respects dietary restrictions like fish avoidance', async () => {
+    const app = createTestApp();
+    const token = await registerAndGetToken(app, 'recipe-restriction@example.com');
+
+    await request(app)
+      .put('/api/user/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        gender: 'male',
+        age: 30,
+        height_cm: 175,
+        weight_kg: 80,
+        goal: 'maintain',
+        activity_level: 'moderately_active',
+        dietary_restrictions: ['鱼'],
+        allergies: [],
+      });
+    await request(app).post('/api/plan/generate').set('Authorization', `Bearer ${token}`);
+
+    const res = await request(app)
+      .post('/api/recipe/generate-daily')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date: '2026-04-16' });
+
+    const mealText = res.body.recipePlan.meals
+      .flatMap((meal: {
+        title: string;
+        ingredients: Array<{ name: string }>;
+        steps: Array<{ instruction: string }>;
+      }) => [meal.title, ...meal.ingredients.map((item) => item.name), ...meal.steps.map((step) => step.instruction)])
+      .join('|');
+
+    expect(mealText).not.toMatch(/鲈鱼|三文鱼|鳕鱼|鱼片|鱼柳|鱼肉|清蒸鱼|煎鱼|烤鱼/);
+  });
+
+  it('supports grouped restriction phrases like 葱姜蒜', async () => {
+    const app = createTestApp();
+    const token = await registerAndGetToken(app, 'recipe-allium@example.com');
+
+    await request(app)
+      .put('/api/user/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        gender: 'male',
+        age: 30,
+        height_cm: 175,
+        weight_kg: 80,
+        goal: 'maintain',
+        activity_level: 'moderately_active',
+        dietary_restrictions: ['不吃葱姜蒜'],
+        allergies: [],
+      });
+    await request(app).post('/api/plan/generate').set('Authorization', `Bearer ${token}`);
+
+    const res = await request(app)
+      .post('/api/recipe/generate-daily')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date: '2026-04-16' });
+
+    const mealText = res.body.recipePlan.meals
+      .flatMap((meal: {
+        title: string;
+        ingredients: Array<{ name: string }>;
+        steps: Array<{ instruction: string }>;
+      }) => [meal.title, ...meal.ingredients.map((item) => item.name), ...meal.steps.map((step) => step.instruction)])
+      .join('|');
+
+    expect(mealText).not.toMatch(/葱|姜片|姜末|大蒜|蒜末/);
+  });
+
+  it('changes meal choices for different user goals', async () => {
+    const app = createTestApp();
+    const loseToken = await registerAndGetToken(app, 'recipe-lose@example.com');
+    const gainToken = await registerAndGetToken(app, 'recipe-gain@example.com');
+
+    await request(app)
+      .put('/api/user/profile')
+      .set('Authorization', `Bearer ${loseToken}`)
+      .send({
+        gender: 'male',
+        age: 30,
+        height_cm: 175,
+        weight_kg: 80,
+        goal: 'lose',
+        activity_level: 'moderately_active',
+        dietary_restrictions: [],
+        allergies: [],
+      });
+    await request(app)
+      .put('/api/user/profile')
+      .set('Authorization', `Bearer ${gainToken}`)
+      .send({
+        gender: 'male',
+        age: 30,
+        height_cm: 175,
+        weight_kg: 80,
+        goal: 'gain',
+        activity_level: 'moderately_active',
+        dietary_restrictions: [],
+        allergies: [],
+      });
+
+    await request(app).post('/api/plan/generate').set('Authorization', `Bearer ${loseToken}`);
+    await request(app).post('/api/plan/generate').set('Authorization', `Bearer ${gainToken}`);
+
+    const [loseRes, gainRes] = await Promise.all([
+      request(app)
+        .post('/api/recipe/generate-daily')
+        .set('Authorization', `Bearer ${loseToken}`)
+        .send({ date: '2026-04-16' }),
+      request(app)
+        .post('/api/recipe/generate-daily')
+        .set('Authorization', `Bearer ${gainToken}`)
+        .send({ date: '2026-04-16' }),
+    ]);
+
+    expect(loseRes.body.recipePlan.meals.map((meal: { title: string }) => meal.title)).not.toEqual(
+      gainRes.body.recipePlan.meals.map((meal: { title: string }) => meal.title),
+    );
   });
 });

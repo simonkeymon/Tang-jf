@@ -51,9 +51,12 @@ describe('Shopping endpoints', () => {
     expect(
       res.body.shoppingList.items.some((item: { category: string }) => item.category === '蔬菜'),
     ).toBe(true);
-    expect(res.body.shoppingList.items.some((item: { name: string }) => item.name === '蒜末')).toBe(
-      true,
-    );
+    expect(
+      res.body.shoppingList.items.some((item: { category: string }) => item.category === '主食' || item.category === '肉类'),
+    ).toBe(true);
+    expect(
+      new Set(res.body.shoppingList.items.map((item: { name: string }) => item.name)).size,
+    ).toBe(res.body.shoppingList.items.length);
   });
 
   it('updates purchased status for an item', async () => {

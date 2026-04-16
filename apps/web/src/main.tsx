@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '@tang/shared';
 import App from './App';
+import '@tang/shared/ui/theme.css';
 import './styles.css';
 
 const rootEl = document.getElementById('root');

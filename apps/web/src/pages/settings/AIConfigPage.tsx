@@ -115,24 +115,42 @@ export default function AIConfigPage() {
   }
 
   return (
-    <PageContainer>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">AI 设置</h1>
-          <p className="page-subtitle">配置自定义模型与导出能力，保持当前服务的可替换性。</p>
+    <PageContainer className="page-stack">
+      <header className="page-header">
+        <div className="section-intro">
+          <span className="eyebrow">AI 基础设施</span>
+          <h1 className="page-title">让模型接入保持可替换，但界面依然稳定。</h1>
+          <p className="page-subtitle">
+            把连接、模型、导出与验证提示收束到同一套视觉节奏里，减少“配置页像后台”的割裂感。
+          </p>
         </div>
         <span className={`pill ${status === '已连接' ? 'status-ok' : 'status-warning'}`}>
           {status}
         </span>
-      </div>
+      </header>
 
       {message ? <div className="banner banner-success">{message}</div> : null}
       {error ? <div className="banner banner-error">{error}</div> : null}
 
-      <div className="content-grid">
-        <Card className="surface-card">
-          <h2>连接配置</h2>
-          <div className="form-grid">
+      <section className="section-shell">
+        <div className="stats-grid">
+          <StatusTile label="连接状态" value={status} hint="先验证连接，再保存配置。" />
+          <StatusTile label="当前模型" value={model} hint="支持输入任意 OpenAI 兼容模型名。" />
+          <StatusTile label="来源模式" value={isCustom ? '自定义' : '平台默认'} hint="决定是否走你的专属接口。" />
+        </div>
+      </section>
+
+      <section className="content-grid settings-grid">
+        <Card className="surface-card surface-subtle">
+          <div className="section-intro">
+            <span className="eyebrow">连接配置</span>
+            <h2>把接口、Key 与模型组织成一组清晰控件。</h2>
+            <p className="page-subtitle">
+              先选模式，再填写 endpoint 和模型；所有配置都保留当前业务逻辑，只做视觉与可读性优化。
+            </p>
+          </div>
+
+          <div className="panel-split">
             <label className="field">
               <span className="field-label">使用自定义 AI</span>
               <Select
@@ -148,71 +166,113 @@ export default function AIConfigPage() {
               <span className="field-label">Base URL</span>
               <Input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
             </label>
+          </div>
 
-            <label className="field">
-              <span className="field-label">API Key</span>
-              <Input
-                type="password"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder={maskedKey ? '留空则保留当前 Key' : '输入 API Key'}
-              />
-              <p className="field-hint">
-                {maskedKey
-                  ? `当前已保存：${maskedKey}。如不需要更换，可留空保存。`
-                  : '首次启用时必须填写。'}
-              </p>
-            </label>
+          <label className="field">
+            <span className="field-label">API Key</span>
+            <Input
+              type="password"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder={maskedKey ? '留空则保留当前 Key' : '输入 API Key'}
+            />
+            <p className="field-hint">
+              {maskedKey
+                ? `当前已保存：${maskedKey}。如不需要更换，可留空保存。`
+                : '首次启用时必须填写。'}
+            </p>
+          </label>
 
-            <label className="field">
-              <span className="field-label">模型（可自定义）</span>
-              <Input
-                list="ai-model-suggestions"
-                value={model}
-                onChange={(event) => setModel(event.target.value)}
-                placeholder="例如：gpt-4o、gpt-4.1-mini、deepseek-chat、qwen-plus"
-              />
-              <datalist id="ai-model-suggestions">
-                <option value="gpt-4o" />
-                <option value="gpt-4o-mini" />
-                <option value="gpt-4.1-mini" />
-                <option value="gpt-4.1" />
-                <option value="deepseek-chat" />
-                <option value="claude-3-5-sonnet-latest" />
-                <option value="qwen-plus" />
-              </datalist>
-              <p className="field-hint">你可以直接输入任何兼容 OpenAI 接口的自定义模型名。</p>
-            </label>
+          <label className="field">
+            <span className="field-label">模型（可自定义）</span>
+            <Input
+              list="ai-model-suggestions"
+              value={model}
+              onChange={(event) => setModel(event.target.value)}
+              placeholder="例如：gpt-4o、gpt-4.1-mini、deepseek-chat、qwen-plus"
+            />
+            <datalist id="ai-model-suggestions">
+              <option value="gpt-4o" />
+              <option value="gpt-4o-mini" />
+              <option value="gpt-4.1-mini" />
+              <option value="gpt-4.1" />
+              <option value="deepseek-chat" />
+              <option value="claude-3-5-sonnet-latest" />
+              <option value="qwen-plus" />
+            </datalist>
+            <p className="field-hint">你可以直接输入任何兼容 OpenAI 接口的自定义模型名。</p>
+          </label>
 
+          <div className="button-row">
+            <Button type="button" variant="secondary" onClick={() => void handleTestConnection()}>
+              测试连接
+            </Button>
+            <Button type="button" onClick={handleSave}>
+              保存配置
+            </Button>
+          </div>
+        </Card>
+
+        <div className="settings-rail">
+          <Card className="surface-card">
+            <div className="section-intro">
+              <span className="eyebrow">导出与状态</span>
+              <h2>把当前状态做成一个易读侧栏。</h2>
+            </div>
+            <div className="stack">
+              <div className="status-tile">
+                <p className="metric-label">Base URL</p>
+                <span className="code-chip">{baseUrl}</span>
+              </div>
+              <div className="status-tile">
+                <p className="metric-label">模型</p>
+                <span className="code-chip">{model}</span>
+              </div>
+              {maskedKey ? (
+                <div className="status-tile">
+                  <p className="metric-label">已保存 Key</p>
+                  <span className="code-chip">{maskedKey}</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="subsection-divider" />
+            <p className="muted">导出当前账号的 JSON 或 CSV 数据，便于备份或进一步分析。</p>
             <div className="button-row">
-              <Button type="button" variant="secondary" onClick={() => void handleTestConnection()}>
-                测试连接
+              <Button type="button" variant="ghost" onClick={() => handleExport('json')}>
+                导出 JSON
               </Button>
-              <Button type="button" onClick={handleSave}>
-                保存配置
+              <Button type="button" variant="ghost" onClick={() => handleExport('csv')}>
+                导出 CSV
               </Button>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="surface-card">
-          <h2>数据导出</h2>
-          <p className="muted">导出当前账号的 JSON 或 CSV 数据，便于备份或进一步分析。</p>
-          <div className="button-row">
-            <Button type="button" variant="ghost" onClick={() => handleExport('json')}>
-              导出 JSON
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => handleExport('csv')}>
-              导出 CSV
-            </Button>
-          </div>
-          {maskedKey ? (
-            <p className="muted" style={{ marginBottom: 0 }}>
-              已保存 Key：{maskedKey}
-            </p>
-          ) : null}
-        </Card>
-      </div>
+          <Card className="surface-card surface-subtle">
+            <div className="section-intro">
+              <span className="eyebrow">最小验证</span>
+              <h3>如何确认食谱是真的由 AI 参与生成。</h3>
+            </div>
+            <ul className="check-list">
+              <li>先在这里把模型配置保存并测试连接，确保状态显示为“已连接”。</li>
+              <li>去个人资料把饮食禁忌改成明显食材，例如“鱼”或“葱姜蒜”。</li>
+              <li>回到今日食谱点击“重新生成”，观察页面上的“生成来源”和菜名变化。</li>
+              <li>如果显示“真实 AI 生成”且菜名、食材同步变化，就能最小化验证 AI 已生效。</li>
+            </ul>
+          </Card>
+        </div>
+      </section>
     </PageContainer>
+  );
+}
+
+function StatusTile({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <Card className="surface-card surface-subtle status-tile">
+      <p className="metric-label">{label}</p>
+      <p className="status-tile-value">{value}</p>
+      <p className="muted" style={{ margin: 0 }}>
+        {hint}
+      </p>
+    </Card>
   );
 }

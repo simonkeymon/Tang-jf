@@ -5,6 +5,14 @@ import { Button, Card, PageContainer } from '@tang/shared';
 import { api } from '../../lib/api';
 import { getErrorMessage } from '../../utils/error-handler';
 
+type RecipeGenerationMeta = {
+  mode: 'ai' | 'mock' | 'fallback';
+  provider: 'openai-compatible' | 'mock';
+  model: string;
+  generated_at: string;
+  reason?: string;
+};
+
 type RecipeItem = {
   id: string;
   meal_type: string;
@@ -12,12 +20,14 @@ type RecipeItem = {
   cuisine_type: string;
   nutrition: { calories: number; protein?: number; carbohydrate?: number; fat?: number };
   cook_time_minutes: number;
+  generation_meta?: RecipeGenerationMeta;
 };
 
 type RecipePlan = {
   meals: RecipeItem[];
   total_calories: number;
   target_calories: number;
+  generation_meta?: RecipeGenerationMeta;
 };
 
 export default function DailyRecipePage() {
@@ -145,6 +155,24 @@ export default function DailyRecipePage() {
             <Metric label="目标热量" value={`${recipePlan.target_calories} kcal`} />
             <Metric label="餐次数" value={`${recipePlan.meals.length} 份`} />
           </div>
+          {recipePlan.generation_meta ? (
+            <div style={{ marginTop: 16 }}>
+              <div className="table-like-row">
+                <span className="muted">生成来源</span>
+                <span className={`pill ${getGenerationClassName(recipePlan.generation_meta.mode)}`}>
+                  {formatGenerationMode(recipePlan.generation_meta)}
+                </span>
+              </div>
+              <div className="table-like-row">
+                <span className="muted">模型</span>
+                <strong>{recipePlan.generation_meta.model}</strong>
+              </div>
+              <p className="muted" style={{ marginBottom: 0 }}>
+                最小验证：先去个人资料把禁忌改成明显食材（如鱼/牛肉），再点“重新生成”。
+                如果这里显示“真实 AI 生成”，且菜名与食材同步变化，就说明这次结果来自真实 AI。
+              </p>
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
@@ -170,7 +198,16 @@ export default function DailyRecipePage() {
                         {meal.cook_time_minutes} 分钟
                       </p>
                     </div>
-                    <span className="pill">{meal.meal_type}</span>
+                    <div className="pill-row">
+                      <span className="pill">{meal.meal_type}</span>
+                      {meal.generation_meta ? (
+                        <span
+                          className={`pill ${getGenerationClassName(meal.generation_meta.mode)}`}
+                        >
+                          {formatGenerationBadge(meal.generation_meta)}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="button-row">
@@ -216,11 +253,29 @@ export default function DailyRecipePage() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="surface-card">
+    <div className="surface-card metric-card">
       <p className="metric-label">{label}</p>
       <p className="metric-value" style={{ fontSize: '1.3rem' }}>
         {value}
       </p>
     </div>
   );
+}
+
+function formatGenerationMode(meta: RecipeGenerationMeta) {
+  if (meta.mode === 'ai') return '真实 AI 生成';
+  if (meta.mode === 'mock') return '模拟输出';
+  return '本地智能兜底';
+}
+
+function formatGenerationBadge(meta: RecipeGenerationMeta) {
+  if (meta.mode === 'ai') return 'AI';
+  if (meta.mode === 'mock') return '模拟';
+  return '兜底';
+}
+
+function getGenerationClassName(mode: RecipeGenerationMeta['mode']) {
+  if (mode === 'ai') return 'status-ok';
+  if (mode === 'mock') return 'status-warning';
+  return '';
 }

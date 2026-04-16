@@ -1,0 +1,63 @@
+.admin-shell {
+  padding-top: 40px;
+}
+
+.admin-auth-grid {
+  margin-bottom: 24px;
+  align-items: stretch;
+}
+
+.admin-hero {
+  background:
+    radial-gradient(circle at top right, rgba(249, 107, 238, 0.16), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(83, 58, 253, 0.18), transparent 30%),
+    linear-gradient(140deg, rgba(28, 30, 84, 0.98), rgba(13, 37, 61, 0.98));
+  color: #ffffff;
+  border-color: rgba(214, 217, 252, 0.2);
+  box-shadow: var(--shadow-deep);
+}
+
+.admin-hero .page-subtitle,
+.admin-hero .muted,
+.admin-hero h2,
+.admin-hero h3,
+.admin-hero p,
+.admin-hero li,
+.admin-hero strong {
+  color: inherit;
+}
+
+.admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-user-row {
+  align-items: center;
+}
+
+.admin-user-meta {
+  color: var(--color-body);
+  font-size: 13px;
+  font-feature-settings: var(--font-feature-tabular);
+}
+
+.admin-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.admin-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-body);
+  font-size: 14px;
+}
+
+.admin-note {
+  margin: 0;
+  color: var(--color-body);
+}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { CSSProperties, FormEvent } from 'react';
+import type { FormEvent } from 'react';
+
+import { Button, Card, Input, PageContainer } from '@tang/shared';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3002/api';
 
@@ -231,261 +233,247 @@ export default function App() {
   }
 
   return (
-    <main
-      style={{
-        maxWidth: 1080,
-        margin: '0 auto',
-        padding: 24,
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
-        color: '#172033',
-      }}
-    >
-      <header style={{ marginBottom: 24 }}>
-        <h1 style={{ marginBottom: 8 }}>Tang Admin Dashboard</h1>
-        <p style={{ color: '#5f6d87', margin: 0 }}>
-          使用管理员账号登录后查看用户概览、计划统计与平台 AI 配置状态。
-        </p>
+    <PageContainer className="admin-shell">
+      <header className="page-header">
+        <div>
+          <h1 className="page-title">Tang Admin Dashboard</h1>
+          <p className="page-subtitle">
+            使用管理员账号登录后查看用户概览、计划统计与平台 AI 配置状态。
+          </p>
+        </div>
+        <div className="pill-row">
+          <span className={`pill ${token ? 'status-ok' : 'status-warning'}`}>
+            {token ? '后台已连接' : '等待登录'}
+          </span>
+          {token ? (
+            <Button type="button" variant="ghost" onClick={handleLogout}>
+              退出后台
+            </Button>
+          ) : null}
+        </div>
       </header>
 
-      <section style={panelStyle}>
-        <h2 style={{ marginTop: 0 }}>{needsBootstrap ? '初始化首个管理员' : '管理员登录'}</h2>
-        <p style={{ color: '#5f6d87' }}>
-          {needsBootstrap
-            ? '首次进入后台时，请先创建管理员账号。首个注册的账号会自动成为管理员。'
-            : '请输入管理员账号密码登录后台。'}
-        </p>
+      <section className="content-grid admin-auth-grid">
+        <Card className="surface-card admin-hero">
+          <span className="pill">Stripe 风格后台面板</span>
+          <h2>{needsBootstrap ? '初始化首个管理员' : '后台总控台'}</h2>
+          <p className="page-subtitle">
+            {needsBootstrap
+              ? '首次进入后台时，请先创建管理员账号。首个注册的账号会自动成为管理员。'
+              : '登录后可管理平台 AI 默认配置，并查看用户与计划概览。'}
+          </p>
+          <ul className="auth-list">
+            <li>统一平台默认 AI 配置，作为普通用户未配置自定义模型时的回退来源。</li>
+            <li>快速查看用户 streak、计划覆盖情况与今日活跃表现。</li>
+            <li>保持现有认证与数据加载逻辑，仅对视觉系统做统一重构。</li>
+          </ul>
+        </Card>
 
-        <form
-          style={{ display: 'grid', gap: 12 }}
-          onSubmit={needsBootstrap ? handleBootstrapRegister : handleLogin}
-        >
-          <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="管理员邮箱"
-            style={inputStyle}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="密码"
-            style={inputStyle}
-          />
-          {needsBootstrap ? (
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="确认密码"
-              style={inputStyle}
-            />
-          ) : null}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button type="submit" disabled={loading} style={buttonStyle}>
-              {loading ? '处理中...' : needsBootstrap ? '创建管理员并进入后台' : '登录后台'}
-            </button>
-            {!needsBootstrap && token ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void loadAdminData()}
-                  style={secondaryButtonStyle}
-                >
-                  刷新数据
-                </button>
-                <button type="button" onClick={handleLogout} style={secondaryButtonStyle}>
-                  退出后台
-                </button>
-              </>
+        <Card className="surface-card">
+          <h2>{needsBootstrap ? '创建管理员账号' : '管理员登录'}</h2>
+          <p className="admin-note">
+            {needsBootstrap
+              ? '创建完成后会自动登录并拉取后台数据。'
+              : '管理员登录后可刷新数据、管理平台 AI，以及查看当前用户状态。'}
+          </p>
+
+          <form className="form-grid" onSubmit={needsBootstrap ? handleBootstrapRegister : handleLogin}>
+            <label className="field">
+              <span className="field-label">管理员邮箱</span>
+              <Input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="管理员邮箱"
+                type="email"
+              />
+            </label>
+
+            <label className="field">
+              <span className="field-label">密码</span>
+              <Input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="密码"
+              />
+            </label>
+
+            {needsBootstrap ? (
+              <label className="field">
+                <span className="field-label">确认密码</span>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="确认密码"
+                />
+              </label>
             ) : null}
-          </div>
-        </form>
+
+            <div className="admin-form-actions">
+              <Button type="submit" disabled={loading}>
+                {loading ? '处理中...' : needsBootstrap ? '创建管理员并进入后台' : '登录后台'}
+              </Button>
+              {!needsBootstrap && token ? (
+                <Button type="button" variant="secondary" onClick={() => void loadAdminData()}>
+                  刷新数据
+                </Button>
+              ) : null}
+            </div>
+          </form>
+        </Card>
       </section>
 
-      {message ? (
-        <div style={{ ...bannerStyle, background: 'rgba(220,252,231,0.95)', color: '#15803d' }}>
-          {message}
-        </div>
-      ) : null}
-      {error ? (
-        <div style={{ ...bannerStyle, background: 'rgba(254,226,226,0.95)', color: '#b91c1c' }}>
-          {error}
-        </div>
-      ) : null}
+      {message ? <div className="banner banner-success">{message}</div> : null}
+      {error ? <div className="banner banner-error">{error}</div> : null}
 
       {stats ? (
         <>
-          <section
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 16,
-              marginBottom: 24,
-            }}
-          >
+          <section className="stats-grid" style={{ marginBottom: 24 }}>
             <Metric label="总用户数" value={String(stats.totalUsers)} />
             <Metric label="今日活跃" value={String(stats.activeToday)} />
             <Metric label="计划总数" value={String(stats.plansCreated)} />
             <Metric label="平台 AI 已配置" value={stats.platformAiConfigured ? '是' : '否'} />
           </section>
 
-          <section style={panelStyle}>
-            <h2 style={{ marginTop: 0 }}>用户列表</h2>
-            {users.length === 0 ? (
-              <p style={{ color: '#5f6d87' }}>当前还没有用户数据。</p>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {users.map((user) => (
-                  <li
-                    key={user.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      padding: '12px 0',
-                      borderBottom: '1px solid rgba(130,149,191,0.16)',
-                    }}
-                  >
-                    <span>{user.email}</span>
-                    <span>
-                      streak {user.streak} · {user.hasPlan ? '有计划' : '无计划'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <div className="content-grid">
+            <Card className="surface-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="page-header" style={{ marginBottom: 0 }}>
+                <div>
+                  <h2>用户列表</h2>
+                  <p className="page-subtitle">快速查看用户邮箱、连续记录情况与是否已生成计划。</p>
+                </div>
+              </div>
+              {users.length === 0 ? (
+                <p className="muted">当前还没有用户数据。</p>
+              ) : (
+                <ul className="list-reset">
+                  {users.map((user) => (
+                    <li key={user.id} className="table-like-row admin-user-row">
+                      <span>{user.email}</span>
+                      <span className="admin-user-meta">
+                        streak {user.streak} · {user.hasPlan ? '有计划' : '无计划'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
 
-          <section style={panelStyle}>
-            <h2 style={{ marginTop: 0 }}>平台 AI 配置</h2>
-            <p style={{ color: '#5f6d87' }}>
-              当普通用户未设置自己的 AI 时，系统会回退使用这里的全局平台配置。
-            </p>
-            <form style={{ display: 'grid', gap: 12 }} onSubmit={handleSavePlatformAI}>
-              <input
-                value={platformAI.base_url}
-                onChange={(event) =>
-                  setPlatformAI((current) => ({ ...current, base_url: event.target.value }))
-                }
-                placeholder="Base URL"
-                style={inputStyle}
-              />
-              <input
-                value={platformAI.model}
-                onChange={(event) =>
-                  setPlatformAI((current) => ({ ...current, model: event.target.value }))
-                }
-                placeholder="模型名"
-                style={inputStyle}
-              />
-              <input
-                type="password"
-                value={platformAI.api_key}
-                onChange={(event) =>
-                  setPlatformAI((current) => ({ ...current, api_key: event.target.value }))
-                }
-                placeholder={maskedPlatformKey ? '留空则保留已保存的 Key' : '输入平台 API Key'}
-                style={inputStyle}
-              />
-              {maskedPlatformKey ? (
-                <p style={{ color: '#5f6d87', margin: 0 }}>当前已保存 Key：{maskedPlatformKey}</p>
-              ) : null}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={platformAI.temperature}
-                  onChange={(event) =>
-                    setPlatformAI((current) => ({
-                      ...current,
-                      temperature: Number(event.target.value),
-                    }))
-                  }
-                  placeholder="temperature"
-                  style={inputStyle}
-                />
-                <input
-                  type="number"
-                  value={platformAI.max_tokens}
-                  onChange={(event) =>
-                    setPlatformAI((current) => ({
-                      ...current,
-                      max_tokens: Number(event.target.value),
-                    }))
-                  }
-                  placeholder="max tokens"
-                  style={inputStyle}
-                />
+            <Card className="surface-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="page-header" style={{ marginBottom: 0 }}>
+                <div>
+                  <h2>平台 AI 配置</h2>
+                  <p className="page-subtitle">
+                    当普通用户未设置自己的 AI 时，系统会回退使用这里的全局平台配置。
+                  </p>
+                </div>
+                <span className={`pill ${stats.platformAiConfigured ? 'status-ok' : 'status-warning'}`}>
+                  {stats.platformAiConfigured ? '已配置' : '未配置'}
+                </span>
               </div>
-              <label style={{ color: '#5f6d87' }}>
-                <input
-                  type="checkbox"
-                  checked={platformAI.is_custom}
-                  onChange={(event) =>
-                    setPlatformAI((current) => ({ ...current, is_custom: event.target.checked }))
-                  }
-                />{' '}
-                标记为自定义平台 AI
-              </label>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button type="submit" disabled={loading} style={buttonStyle}>
-                  {loading ? '保存中...' : '保存平台 AI'}
-                </button>
-              </div>
-            </form>
-          </section>
+
+              <form className="form-grid" onSubmit={handleSavePlatformAI}>
+                <label className="field">
+                  <span className="field-label">Base URL</span>
+                  <Input
+                    value={platformAI.base_url}
+                    onChange={(event) =>
+                      setPlatformAI((current) => ({ ...current, base_url: event.target.value }))
+                    }
+                    placeholder="Base URL"
+                  />
+                </label>
+
+                <label className="field">
+                  <span className="field-label">模型名</span>
+                  <Input
+                    value={platformAI.model}
+                    onChange={(event) =>
+                      setPlatformAI((current) => ({ ...current, model: event.target.value }))
+                    }
+                    placeholder="模型名"
+                  />
+                </label>
+
+                <label className="field">
+                  <span className="field-label">平台 API Key</span>
+                  <Input
+                    type="password"
+                    value={platformAI.api_key}
+                    onChange={(event) =>
+                      setPlatformAI((current) => ({ ...current, api_key: event.target.value }))
+                    }
+                    placeholder={maskedPlatformKey ? '留空则保留已保存的 Key' : '输入平台 API Key'}
+                  />
+                  {maskedPlatformKey ? (
+                    <p className="field-hint">当前已保存 Key：{maskedPlatformKey}</p>
+                  ) : null}
+                </label>
+
+                <div className="admin-inline-grid">
+                  <label className="field">
+                    <span className="field-label">temperature</span>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={platformAI.temperature}
+                      onChange={(event) =>
+                        setPlatformAI((current) => ({
+                          ...current,
+                          temperature: Number(event.target.value),
+                        }))
+                      }
+                      placeholder="temperature"
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span className="field-label">max tokens</span>
+                    <Input
+                      type="number"
+                      value={platformAI.max_tokens}
+                      onChange={(event) =>
+                        setPlatformAI((current) => ({
+                          ...current,
+                          max_tokens: Number(event.target.value),
+                        }))
+                      }
+                      placeholder="max tokens"
+                    />
+                  </label>
+                </div>
+
+                <label className="admin-checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={platformAI.is_custom}
+                    onChange={(event) =>
+                      setPlatformAI((current) => ({ ...current, is_custom: event.target.checked }))
+                    }
+                  />
+                  标记为自定义平台 AI
+                </label>
+
+                <div className="admin-form-actions">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? '保存中...' : '保存平台 AI'}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          </div>
         </>
       ) : null}
-    </main>
+    </PageContainer>
   );
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div style={panelStyle}>
-      <p style={{ margin: '0 0 8px', color: '#5f6d87' }}>{label}</p>
-      <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>{value}</p>
-    </div>
+    <Card className="surface-card metric-card">
+      <p className="metric-label">{label}</p>
+      <p className="metric-value">{value}</p>
+    </Card>
   );
 }
-
-const panelStyle: CSSProperties = {
-  border: '1px solid rgba(130,149,191,0.2)',
-  borderRadius: 20,
-  padding: 20,
-  background: '#fff',
-  boxShadow: '0 14px 38px rgba(37,54,88,0.08)',
-  marginBottom: 24,
-};
-
-const inputStyle: CSSProperties = {
-  width: '100%',
-  padding: 12,
-  borderRadius: 14,
-  border: '1px solid rgba(130,149,191,0.24)',
-  background: 'rgba(248,250,255,0.96)',
-};
-
-const buttonStyle: CSSProperties = {
-  padding: '0.8rem 1.25rem',
-  borderRadius: 14,
-  cursor: 'pointer',
-  fontWeight: 600,
-  background: 'linear-gradient(135deg, rgba(39,81,219,1), rgba(79,125,255,0.95))',
-  color: '#fff',
-  border: 'none',
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  ...buttonStyle,
-  background: '#e9efff',
-  color: '#2751db',
-  border: '1px solid rgba(39,81,219,0.16)',
-};
-
-const bannerStyle: CSSProperties = {
-  marginBottom: 16,
-  padding: 14,
-  borderRadius: 16,
-};
