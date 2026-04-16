@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import { desc, eq } from 'drizzle-orm';
+
+import { getDb, isDatabaseEnabled } from '../../db/connection.js';
+import { shopping_items, shopping_lists } from '../../db/schema/index.js';
 import type { RecipeService } from '../recipe/recipe.service.js';
 
 export interface ShoppingListItem {
@@ -39,10 +43,50 @@ export class ShoppingError extends Error {
   }
 }
 
-export function createShoppingService(recipeService: RecipeService): ShoppingService {
+export function createShoppingService(
+  recipeService: RecipeService,
+): ShoppingService & { hydrate?(): Promise<void> } {
   const lists = new Map<string, ShoppingList[]>();
 
   return {
+    async hydrate() {
+      const db = getDb();
+      if (!db || !isDatabaseEnabled()) {
+        return;
+      }
+
+      lists.clear();
+      const [listRows, itemRows] = await Promise.all([
+        db.select().from(shopping_lists).orderBy(desc(shopping_lists.created_at)),
+        db.select().from(shopping_items),
+      ]);
+
+      const itemsByListId = new Map<string, ShoppingListItem[]>();
+      for (const row of itemRows) {
+        const current = itemsByListId.get(row.list_id) ?? [];
+        current.push({
+          id: row.id,
+          name: row.name,
+          total_quantity: row.total_quantity,
+          category: row.category as ShoppingListItem['category'],
+          purchased: row.purchased,
+          staple: row.staple,
+        });
+        itemsByListId.set(row.list_id, current);
+      }
+
+      for (const row of listRows) {
+        const current = lists.get(row.user_id) ?? [];
+        current.push({
+          id: row.id,
+          user_id: row.user_id,
+          days: row.days,
+          items: itemsByListId.get(row.id) ?? [],
+        });
+        lists.set(row.user_id, current);
+      }
+    },
+
     generate(userId, days) {
       if (days <= 0) {
         throw new ShoppingError(400, 'days must be greater than 0');
@@ -60,10 +104,6 @@ export function createShoppingService(recipeService: RecipeService): ShoppingSer
         .slice(0, days);
 
       for (const recipePlan of availablePlans) {
-        if (!recipePlan) {
-          continue;
-        }
-
         for (const meal of recipePlan.meals) {
           for (const ingredient of meal.ingredients) {
             const key = ingredient.name;
@@ -71,7 +111,6 @@ export function createShoppingService(recipeService: RecipeService): ShoppingSer
             const existing = ingredientsMap.get(key);
             if (existing) {
               existing.quantity += parsedQuantity;
-              ingredientsMap.set(key, existing);
             } else {
               ingredientsMap.set(key, {
                 quantity: parsedQuantity,
@@ -79,7 +118,9 @@ export function createShoppingService(recipeService: RecipeService): ShoppingSer
                 category: categorizeIngredient(ingredient.name),
                 staple: isStaple(ingredient.name),
               });
+              continue;
             }
+            ingredientsMap.set(key, existing);
           }
         }
       }
@@ -102,6 +143,7 @@ export function createShoppingService(recipeService: RecipeService): ShoppingSer
 
       const userLists = lists.get(userId) ?? [];
       lists.set(userId, [list, ...userLists]);
+      persistList(list);
       return list;
     },
 
@@ -121,9 +163,51 @@ export function createShoppingService(recipeService: RecipeService): ShoppingSer
       }
 
       item.purchased = purchased;
+      persistItemPurchase(itemId, purchased);
       return item;
     },
   };
+}
+
+function persistList(list: ShoppingList) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void (async () => {
+    await db.delete(shopping_items).where(eq(shopping_items.list_id, list.id));
+    await db.delete(shopping_lists).where(eq(shopping_lists.id, list.id));
+    await db.insert(shopping_lists).values({
+      id: list.id,
+      user_id: list.user_id,
+      days: list.days,
+      created_at: new Date(),
+    });
+
+    if (list.items.length > 0) {
+      await db.insert(shopping_items).values(
+        list.items.map((item) => ({
+          id: item.id,
+          list_id: list.id,
+          name: item.name,
+          total_quantity: item.total_quantity,
+          category: item.category,
+          purchased: item.purchased,
+          staple: item.staple,
+        })),
+      );
+    }
+  })();
+}
+
+function persistItemPurchase(itemId: string, purchased: boolean) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void db.update(shopping_items).set({ purchased }).where(eq(shopping_items.id, itemId));
 }
 
 function categorizeIngredient(name: string): ShoppingListItem['category'] {

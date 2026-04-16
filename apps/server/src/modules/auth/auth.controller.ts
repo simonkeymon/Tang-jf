@@ -3,10 +3,12 @@ import { Router, type Response } from 'express';
 import { createAuthMiddleware } from './auth.middleware.js';
 import { AuthError, type AuthService } from './auth.service.js';
 import {
+  forgotPasswordSchema,
   formatValidationErrors,
   loginSchema,
   refreshTokenSchema,
   registerSchema,
+  resetPasswordSchema,
 } from './auth.validator.js';
 
 export function createAuthRouter(authService: AuthService): Router {
@@ -26,7 +28,34 @@ export function createAuthRouter(authService: AuthService): Router {
 
     try {
       const authResult = await authService.register(parsedBody.data);
+      res.status(201).json(authResult);
+    } catch (error) {
+      sendAuthError(res, error);
+    }
+  });
 
+  router.get('/admin-bootstrap/status', async (_req, res) => {
+    try {
+      const hasAdminUsers = await authService.hasAdminUsers();
+      res.json({ needsBootstrap: !hasAdminUsers });
+    } catch (error) {
+      sendAuthError(res, error);
+    }
+  });
+
+  router.post('/admin-bootstrap/register', async (req, res) => {
+    const parsedBody = registerSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      res.status(400).json({
+        message: 'Invalid request body',
+        errors: formatValidationErrors(parsedBody.error),
+      });
+      return;
+    }
+
+    try {
+      const authResult = await authService.bootstrapAdmin(parsedBody.data);
       res.status(201).json(authResult);
     } catch (error) {
       sendAuthError(res, error);
@@ -46,14 +75,13 @@ export function createAuthRouter(authService: AuthService): Router {
 
     try {
       const authResult = await authService.login(parsedBody.data);
-
       res.json(authResult);
     } catch (error) {
       sendAuthError(res, error);
     }
   });
 
-  router.post('/refresh', (req, res) => {
+  router.post('/refresh', async (req, res) => {
     const parsedBody = refreshTokenSchema.safeParse(req.body);
 
     if (!parsedBody.success) {
@@ -65,15 +93,14 @@ export function createAuthRouter(authService: AuthService): Router {
     }
 
     try {
-      const authResult = authService.refresh(parsedBody.data);
-
+      const authResult = await authService.refresh(parsedBody.data);
       res.json(authResult);
     } catch (error) {
       sendAuthError(res, error);
     }
   });
 
-  router.post('/logout', (req, res) => {
+  router.post('/logout', async (req, res) => {
     const parsedBody = refreshTokenSchema.safeParse(req.body);
 
     if (!parsedBody.success) {
@@ -85,8 +112,49 @@ export function createAuthRouter(authService: AuthService): Router {
     }
 
     try {
-      authService.logout(parsedBody.data);
+      await authService.logout(parsedBody.data);
+      res.json({ success: true });
+    } catch (error) {
+      sendAuthError(res, error);
+    }
+  });
 
+  router.post('/forgot-password', async (req, res) => {
+    const parsedBody = forgotPasswordSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      res.status(400).json({
+        message: 'Invalid request body',
+        errors: formatValidationErrors(parsedBody.error),
+      });
+      return;
+    }
+
+    try {
+      const result = await authService.requestPasswordReset(parsedBody.data.email);
+      res.json({
+        success: true,
+        resetToken: result.resetToken,
+        message: 'If the email exists, a reset token has been created.',
+      });
+    } catch (error) {
+      sendAuthError(res, error);
+    }
+  });
+
+  router.post('/reset-password', async (req, res) => {
+    const parsedBody = resetPasswordSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      res.status(400).json({
+        message: 'Invalid request body',
+        errors: formatValidationErrors(parsedBody.error),
+      });
+      return;
+    }
+
+    try {
+      await authService.resetPassword(parsedBody.data.token, parsedBody.data.password);
       res.json({ success: true });
     } catch (error) {
       sendAuthError(res, error);

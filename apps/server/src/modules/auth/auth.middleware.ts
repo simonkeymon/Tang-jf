@@ -19,17 +19,20 @@ export function createAuthMiddleware(authService: AuthService): RequestHandler {
       return;
     }
 
-    try {
-      req.user = authService.authenticateAccessToken(token);
-      next();
-    } catch (error) {
-      if (error instanceof AuthError) {
-        rejectUnauthorizedRequest(req, res, error.statusCode, error.message);
-        return;
-      }
+    void authService
+      .authenticateAccessToken(token)
+      .then((user) => {
+        req.user = user;
+        next();
+      })
+      .catch((error) => {
+        if (error instanceof AuthError) {
+          rejectUnauthorizedRequest(req, res, error.statusCode, error.message);
+          return;
+        }
 
-      rejectUnauthorizedRequest(req, res);
-    }
+        rejectUnauthorizedRequest(req, res);
+      });
   };
 }
 

@@ -69,6 +69,57 @@ describe('AI service mock mode', () => {
     expect(response.content).toBe('custom output');
   });
 
+  it('supports chatForUser with resolved runtime config', async () => {
+    const aiService = createAIService({
+      getUserConfig: () => null,
+      setUserConfig: () => {
+        throw new Error('not implemented');
+      },
+      getPlatformConfig: () => null,
+      setPlatformConfig: () => {
+        throw new Error('not implemented');
+      },
+      getRuntimeConfigForUser: () => ({
+        provider: 'mock',
+        model: 'resolved-user-model',
+        mockResponse: 'resolved output',
+      }),
+    });
+
+    const response = await aiService.chatForUser('user-1', [{ role: 'user', content: 'resolved' }]);
+
+    expect(response.model).toBe('resolved-user-model');
+    expect(response.content).toBe('resolved output');
+  });
+
+  it('falls back to mock override when saved runtime config fails', async () => {
+    const aiService = createAIService({
+      getUserConfig: () => null,
+      setUserConfig: () => {
+        throw new Error('not implemented');
+      },
+      getPlatformConfig: () => null,
+      setPlatformConfig: () => {
+        throw new Error('not implemented');
+      },
+      getRuntimeConfigForUser: () => ({
+        provider: 'openai-compatible',
+        baseUrl: 'http://127.0.0.1:9/v1',
+        apiKey: 'bad-key',
+        model: 'broken-model',
+      }),
+    });
+
+    const response = await aiService.chatForUser(
+      'user-1',
+      [{ role: 'user', content: 'fallback please' }],
+      { mockResponse: 'fallback output' },
+    );
+
+    expect(response.provider).toBe('mock');
+    expect(response.content).toBe('fallback output');
+  });
+
   it('enforces simple rate limiting', async () => {
     const aiService = createAIService();
 

@@ -1,3 +1,10 @@
+import { randomUUID } from 'node:crypto';
+
+import { and, eq } from 'drizzle-orm';
+
+import { getDb, isDatabaseEnabled } from '../../db/connection.js';
+import { meal_check_ins, weight_entries } from '../../db/schema/index.js';
+
 export type MealCheckinStatus = 'completed' | 'skipped' | 'partial';
 export type MealCheckinType = '早餐' | '午餐' | '晚餐' | '加餐';
 
@@ -25,23 +32,65 @@ export interface TrackingService {
   getStreak(userId: string): number;
 }
 
-export function createTrackingService(): TrackingService {
-  const weightEntries = new Map<string, WeightRecord[]>();
-  const checkins = new Map<string, MealCheckinRecord[]>();
+export function createTrackingService(): TrackingService & { hydrate?(): Promise<void> } {
+  const weightByUser = new Map<string, WeightRecord[]>();
+  const checkinsByUser = new Map<string, MealCheckinRecord[]>();
 
   return {
+    async hydrate() {
+      const db = getDb();
+      if (!db || !isDatabaseEnabled()) {
+        return;
+      }
+
+      weightByUser.clear();
+      checkinsByUser.clear();
+
+      const [weightRecords, mealRecords] = await Promise.all([
+        db.select().from(weight_entries),
+        db.select().from(meal_check_ins),
+      ]);
+
+      for (const record of weightRecords) {
+        const current = weightByUser.get(record.user_id) ?? [];
+        current.push({
+          user_id: record.user_id,
+          date: record.date,
+          weight_kg: Number(record.weight_kg),
+          note: record.note ?? undefined,
+        });
+        current.sort((a, b) => a.date.localeCompare(b.date));
+        weightByUser.set(record.user_id, current);
+      }
+
+      for (const record of mealRecords) {
+        const current = checkinsByUser.get(record.user_id) ?? [];
+        current.push({
+          user_id: record.user_id,
+          date: record.date,
+          meal_type: record.meal_type as MealCheckinType,
+          status: record.status as MealCheckinStatus,
+        });
+        current.sort(
+          (a, b) => a.date.localeCompare(b.date) || a.meal_type.localeCompare(b.meal_type),
+        );
+        checkinsByUser.set(record.user_id, current);
+      }
+    },
+
     upsertWeight(userId, input) {
-      const existing = weightEntries.get(userId) ?? [];
+      const existing = weightByUser.get(userId) ?? [];
       const nextEntry: WeightRecord = { user_id: userId, ...input };
       const updated = existing.filter((entry) => entry.date !== input.date);
       updated.push(nextEntry);
       updated.sort((a, b) => a.date.localeCompare(b.date));
-      weightEntries.set(userId, updated);
+      weightByUser.set(userId, updated);
+      persistWeight(nextEntry);
       return nextEntry;
     },
 
     listWeights(userId, from, to) {
-      return (weightEntries.get(userId) ?? []).filter((entry) => {
+      return (weightByUser.get(userId) ?? []).filter((entry) => {
         if (from && entry.date < from) return false;
         if (to && entry.date > to) return false;
         return true;
@@ -49,11 +98,11 @@ export function createTrackingService(): TrackingService {
     },
 
     getWeightForDate(userId, date) {
-      return (weightEntries.get(userId) ?? []).find((entry) => entry.date === date) ?? null;
+      return (weightByUser.get(userId) ?? []).find((entry) => entry.date === date) ?? null;
     },
 
     upsertCheckin(userId, input) {
-      const existing = checkins.get(userId) ?? [];
+      const existing = checkinsByUser.get(userId) ?? [];
       const nextEntry: MealCheckinRecord = { user_id: userId, ...input };
       const updated = existing.filter(
         (entry) => !(entry.date === input.date && entry.meal_type === input.meal_type),
@@ -62,21 +111,22 @@ export function createTrackingService(): TrackingService {
       updated.sort(
         (a, b) => a.date.localeCompare(b.date) || a.meal_type.localeCompare(b.meal_type),
       );
-      checkins.set(userId, updated);
+      checkinsByUser.set(userId, updated);
+      persistCheckin(nextEntry);
       return nextEntry;
     },
 
     getTodayCheckins(userId) {
       const today = new Date().toISOString().slice(0, 10);
-      return (checkins.get(userId) ?? []).filter((entry) => entry.date === today);
+      return (checkinsByUser.get(userId) ?? []).filter((entry) => entry.date === today);
     },
 
     getCheckinsForDate(userId, date) {
-      return (checkins.get(userId) ?? []).filter((entry) => entry.date === date);
+      return (checkinsByUser.get(userId) ?? []).filter((entry) => entry.date === date);
     },
 
     getStreak(userId) {
-      const allCheckins = checkins.get(userId) ?? [];
+      const allCheckins = checkinsByUser.get(userId) ?? [];
       const grouped = new Map<string, MealCheckinRecord[]>();
 
       for (const entry of allCheckins) {
@@ -114,4 +164,50 @@ export function createTrackingService(): TrackingService {
       return streak;
     },
   };
+}
+
+function persistWeight(entry: WeightRecord) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void (async () => {
+    await db
+      .delete(weight_entries)
+      .where(and(eq(weight_entries.user_id, entry.user_id), eq(weight_entries.date, entry.date)));
+    await db.insert(weight_entries).values({
+      id: randomUUID(),
+      user_id: entry.user_id,
+      date: entry.date,
+      weight_kg: entry.weight_kg,
+      note: entry.note,
+    });
+  })();
+}
+
+function persistCheckin(entry: MealCheckinRecord) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void (async () => {
+    await db
+      .delete(meal_check_ins)
+      .where(
+        and(
+          eq(meal_check_ins.user_id, entry.user_id),
+          eq(meal_check_ins.date, entry.date),
+          eq(meal_check_ins.meal_type, entry.meal_type),
+        ),
+      );
+    await db.insert(meal_check_ins).values({
+      id: randomUUID(),
+      user_id: entry.user_id,
+      date: entry.date,
+      meal_type: entry.meal_type,
+      status: entry.status,
+    });
+  })();
 }

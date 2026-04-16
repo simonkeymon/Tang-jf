@@ -1,13 +1,19 @@
 import type { CSSProperties, PropsWithChildren } from 'react';
 
-export function Card({ children, style }: PropsWithChildren<{ style?: CSSProperties }>) {
+export function Card({
+  children,
+  style,
+  className,
+}: PropsWithChildren<{ style?: CSSProperties; className?: string }>) {
   return (
     <div
+      className={className}
       style={{
-        border: '1px solid #e5e7eb',
-        borderRadius: 12,
-        padding: 16,
-        backgroundColor: '#fff',
+        border: '1px solid rgba(130, 149, 191, 0.2)',
+        borderRadius: 20,
+        padding: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.92)',
+        boxShadow: '0 14px 38px rgba(37, 54, 88, 0.08)',
         ...style,
       }}
     >

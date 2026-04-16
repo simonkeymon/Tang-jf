@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import { and, eq } from 'drizzle-orm';
+
+import { getDb, isDatabaseEnabled } from '../../db/connection.js';
+import { plans, recipes } from '../../db/schema/index.js';
 import type { AIServerService } from '../ai/ai.service.js';
 import type { PlanService } from '../plan/plan.service.js';
 import type { UserService } from '../user/user.service.js';
@@ -22,6 +26,10 @@ export interface DailyRecipeItem {
   steps: Array<{ order: number; instruction: string }>;
   nutrition: RecipeNutrition;
   cook_time_minutes: number;
+  date?: string;
+  plan_id?: string;
+  user_id?: string;
+  is_favorite?: boolean;
 }
 
 export interface DailyRecipePlan {
@@ -65,11 +73,54 @@ export function createRecipeService(
   planService: PlanService,
   aiService: AIServerService,
   userService: UserService,
-): RecipeService {
+): RecipeService & { hydrate?(): Promise<void> } {
   const dailyRecipes = new Map<string, DailyRecipePlan[]>();
-  const favorites = new Map<string, Set<string>>();
 
   return {
+    async hydrate() {
+      const db = getDb();
+      if (!db || !isDatabaseEnabled()) {
+        return;
+      }
+
+      const recipeRows = await db.select().from(recipes);
+      const planRows = await db.select().from(plans);
+      const plansById = new Map(planRows.map((plan) => [plan.id, plan]));
+      dailyRecipes.clear();
+
+      for (const row of recipeRows) {
+        const planRecord = plansById.get(row.plan_id);
+        if (!planRecord) {
+          continue;
+        }
+
+        const userPlans = dailyRecipes.get(planRecord.user_id) ?? [];
+        const userPlan = userPlans.find(
+          (plan) => plan.plan_id === row.plan_id && plan.date === row.date,
+        );
+        const meal = mapRecipeRow(row);
+
+        if (userPlan) {
+          userPlan.meals.push(meal);
+          userPlan.total_calories += meal.nutrition.calories;
+          continue;
+        }
+
+        const nextPlan: DailyRecipePlan = {
+          id: `${row.plan_id}:${row.date}`,
+          user_id: planRecord.user_id,
+          plan_id: row.plan_id,
+          date: row.date,
+          meals: [meal],
+          total_calories: meal.nutrition.calories,
+          target_calories: planRecord.daily_calorie_target,
+        };
+
+        userPlans.push(nextPlan);
+        dailyRecipes.set(planRecord.user_id, userPlans);
+      }
+    },
+
     async generateDailyRecipe(userId, date) {
       const plan = planService.getCurrentPlan(userId);
       const profile = userService.getProfile(userId);
@@ -78,8 +129,7 @@ export function createRecipeService(
       }
 
       const prompt = buildRecipePrompt(plan, date);
-      await aiService.chat([{ role: 'user', content: prompt }], {
-        provider: 'mock',
+      await aiService.chatForUser(userId, [{ role: 'user', content: prompt }], {
         mockResponse: `Recipe plan for ${date}`,
       });
 
@@ -93,6 +143,7 @@ export function createRecipeService(
       const existing = dailyRecipes.get(userId) ?? [];
       const withoutSameDate = existing.filter((entry) => entry.date !== date);
       dailyRecipes.set(userId, [recipePlan, ...withoutSameDate]);
+      persistRecipePlan(recipePlan);
 
       return recipePlan;
     },
@@ -137,8 +188,7 @@ export function createRecipeService(
         .map((ingredient) => ingredient.trim())
         .filter(Boolean);
       const prompt = `Generate ${meals} Chinese recipes using these ingredients as much as possible: ${normalizedIngredients.join(', ')}. Goal calories: ${plan.daily_calorie_target}.`;
-      await aiService.chat([{ role: 'user', content: prompt }], {
-        provider: 'mock',
+      await aiService.chatForUser(userId, [{ role: 'user', content: prompt }], {
         mockResponse: `Recipes from ingredients: ${normalizedIngredients.join(', ')}`,
       });
 
@@ -151,27 +201,25 @@ export function createRecipeService(
         throw new RecipeError(404, 'Recipe not found');
       }
 
-      const current = favorites.get(userId) ?? new Set<string>();
-      current.add(recipeId);
-      favorites.set(userId, current);
+      recipe.is_favorite = true;
+      persistRecipeFavorite(recipeId, true);
       return recipe;
     },
 
     unfavoriteRecipe(userId, recipeId) {
-      const current = favorites.get(userId);
-      if (!current) {
+      const recipe = this.getRecipe(userId, recipeId);
+      if (!recipe) {
         return;
       }
 
-      current.delete(recipeId);
-      favorites.set(userId, current);
+      recipe.is_favorite = false;
+      persistRecipeFavorite(recipeId, false);
     },
 
     listFavorites(userId) {
-      const current = favorites.get(userId) ?? new Set<string>();
-      return [...current]
-        .map((recipeId) => this.getRecipe(userId, recipeId))
-        .filter((recipe): recipe is DailyRecipeItem => Boolean(recipe));
+      return (dailyRecipes.get(userId) ?? [])
+        .flatMap((plan) => plan.meals)
+        .filter((recipe) => recipe.is_favorite);
     },
 
     async swapRecipe(userId, recipeId) {
@@ -185,27 +233,114 @@ export function createRecipeService(
         }
 
         const existing = dailyPlan.meals[index];
-        await aiService.chat(
+        await aiService.chatForUser(
+          userId,
           [
             {
               role: 'user',
               content: `Swap recipe for ${existing.meal_type} on ${dailyPlan.date}. Keep calories near ${existing.nutrition.calories}. Avoid allergies: ${(profile?.allergies ?? []).join(', ') || 'none'}.`,
             },
           ],
-          { provider: 'mock', mockResponse: `Swap for ${existing.title}` },
+          { mockResponse: `Swap for ${existing.title}` },
         );
 
         const replacement = buildSwapRecipe(existing, profile?.allergies ?? []);
+        replacement.date = dailyPlan.date;
+        replacement.plan_id = dailyPlan.plan_id;
+        replacement.user_id = userId;
         dailyPlan.meals[index] = replacement;
         dailyPlan.total_calories = dailyPlan.meals.reduce(
           (sum, meal) => sum + meal.nutrition.calories,
           0,
         );
+        persistRecipeSwap(dailyPlan.plan_id, dailyPlan.date, recipeId, replacement);
         return replacement;
       }
 
       throw new RecipeError(404, 'Recipe not found');
     },
+  };
+}
+
+function persistRecipePlan(recipePlan: DailyRecipePlan) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void (async () => {
+    await db
+      .delete(recipes)
+      .where(and(eq(recipes.plan_id, recipePlan.plan_id), eq(recipes.date, recipePlan.date)));
+    await db.insert(recipes).values(
+      recipePlan.meals.map((meal) => ({
+        id: meal.id,
+        plan_id: recipePlan.plan_id,
+        date: recipePlan.date,
+        meal_type: meal.meal_type,
+        title: meal.title,
+        cuisine_type: meal.cuisine_type,
+        ingredients: meal.ingredients,
+        steps: meal.steps,
+        nutrition: meal.nutrition,
+        cook_time_minutes: meal.cook_time_minutes,
+        is_favorite: meal.is_favorite ?? false,
+      })),
+    );
+  })();
+}
+
+function persistRecipeFavorite(recipeId: string, isFavorite: boolean) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void db.update(recipes).set({ is_favorite: isFavorite }).where(eq(recipes.id, recipeId));
+}
+
+function persistRecipeSwap(
+  planId: string,
+  date: string,
+  recipeId: string,
+  replacement: DailyRecipeItem,
+) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void (async () => {
+    await db.delete(recipes).where(eq(recipes.id, recipeId));
+    await db.insert(recipes).values({
+      id: replacement.id,
+      plan_id: planId,
+      date,
+      meal_type: replacement.meal_type,
+      title: replacement.title,
+      cuisine_type: replacement.cuisine_type,
+      ingredients: replacement.ingredients,
+      steps: replacement.steps,
+      nutrition: replacement.nutrition,
+      cook_time_minutes: replacement.cook_time_minutes,
+      is_favorite: replacement.is_favorite ?? false,
+    });
+  })();
+}
+
+function mapRecipeRow(row: typeof recipes.$inferSelect): DailyRecipeItem {
+  return {
+    id: row.id,
+    meal_type: row.meal_type as DailyRecipeItem['meal_type'],
+    title: row.title,
+    cuisine_type: row.cuisine_type as DailyRecipeItem['cuisine_type'],
+    ingredients: row.ingredients as DailyRecipeItem['ingredients'],
+    steps: row.steps as DailyRecipeItem['steps'],
+    nutrition: row.nutrition as RecipeNutrition,
+    cook_time_minutes: row.cook_time_minutes,
+    date: row.date,
+    plan_id: row.plan_id,
+    is_favorite: row.is_favorite,
   };
 }
 
@@ -234,6 +369,7 @@ function buildSwapRecipe(existing: DailyRecipeItem, allergies: string[]): DailyR
       calories: existing.nutrition.calories,
     },
     cook_time_minutes: existing.cook_time_minutes,
+    is_favorite: false,
   };
 }
 
@@ -266,6 +402,7 @@ function createRecipesFromIngredients(
       ],
       nutrition: calculateNutrition(calories),
       cook_time_minutes: 20,
+      is_favorite: false,
     };
   });
 }
@@ -277,11 +414,17 @@ function buildRecipePlan(
   targetCalories: number,
   allergies: string[],
 ): DailyRecipePlan {
-  const meals = createMeals(targetCalories, allergies);
+  const meals = createMeals(targetCalories, allergies).map((meal) => ({
+    ...meal,
+    date,
+    plan_id: planId,
+    user_id: userId,
+    is_favorite: false,
+  }));
   const total_calories = meals.reduce((sum, meal) => sum + meal.nutrition.calories, 0);
 
   return {
-    id: randomUUID(),
+    id: `${planId}:${date}`,
     user_id: userId,
     plan_id: planId,
     date,
@@ -326,6 +469,7 @@ function createMeals(targetCalories: number, allergies: string[]): DailyRecipeIt
       ],
       nutrition: calculateNutrition(breakfastCalories),
       cook_time_minutes: 25,
+      is_favorite: false,
     },
     {
       id: randomUUID(),
@@ -340,6 +484,7 @@ function createMeals(targetCalories: number, allergies: string[]): DailyRecipeIt
       ],
       nutrition: calculateNutrition(lunchCalories),
       cook_time_minutes: 30,
+      is_favorite: false,
     },
     {
       id: randomUUID(),
@@ -359,6 +504,7 @@ function createMeals(targetCalories: number, allergies: string[]): DailyRecipeIt
       ],
       nutrition: calculateNutrition(dinnerCalories),
       cook_time_minutes: 20,
+      is_favorite: false,
     },
     {
       id: randomUUID(),
@@ -375,6 +521,7 @@ function createMeals(targetCalories: number, allergies: string[]): DailyRecipeIt
       ],
       nutrition: calculateNutrition(snackCalories),
       cook_time_minutes: 5,
+      is_favorite: false,
     },
   ];
 }

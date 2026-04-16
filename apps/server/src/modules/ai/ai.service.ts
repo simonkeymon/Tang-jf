@@ -13,10 +13,22 @@ import {
   getUsageKey,
   withAIRetry,
 } from './ai.middleware.js';
+import type { AIConfigService } from './ai-config.service.js';
 
 export interface AIServerService {
   chat(messages: AIChatMessage[], config?: AIConfig): Promise<AITextResponse>;
+  chatForUser(
+    userId: string,
+    messages: AIChatMessage[],
+    config?: AIConfig,
+  ): Promise<AITextResponse>;
   chatWithVision(
+    messages: AIChatMessage[],
+    images: AIVisionImageInput[],
+    config?: AIConfig,
+  ): Promise<AITextResponse>;
+  chatWithVisionForUser(
+    userId: string,
     messages: AIChatMessage[],
     images: AIVisionImageInput[],
     config?: AIConfig,
@@ -30,7 +42,7 @@ export interface AIServerService {
   };
 }
 
-export function createAIService(): AIServerService {
+export function createAIService(aiConfigService?: AIConfigService): AIServerService {
   const client = new AIClient();
   const usageTracker = createAIUsageTracker();
   const rateLimiter = createAIRateLimiter({ maxRequestsPerMinute: 5 });
@@ -47,6 +59,19 @@ export function createAIService(): AIServerService {
       return response;
     },
 
+    async chatForUser(userId, messages, config) {
+      const runtimeConfig = aiConfigService?.getRuntimeConfigForUser(userId) ?? undefined;
+      try {
+        return await this.chat(messages, mergeRuntimeConfig(runtimeConfig, config));
+      } catch (error) {
+        if (runtimeConfig && config) {
+          return this.chat(messages, config);
+        }
+
+        throw error;
+      }
+    },
+
     async chatWithVision(messages, images, config) {
       const resolvedConfig = withMockDefault(resolveAIConfig({ userConfig: config }));
       const key = getUsageKey(resolvedConfig);
@@ -58,6 +83,23 @@ export function createAIService(): AIServerService {
       usageTracker.record(key, response);
 
       return response;
+    },
+
+    async chatWithVisionForUser(userId, messages, images, config) {
+      const runtimeConfig = aiConfigService?.getRuntimeConfigForUser(userId) ?? undefined;
+      try {
+        return await this.chatWithVision(
+          messages,
+          images,
+          mergeRuntimeConfig(runtimeConfig, config),
+        );
+      } catch (error) {
+        if (runtimeConfig && config) {
+          return this.chatWithVision(messages, images, config);
+        }
+
+        throw error;
+      }
     },
 
     async *stream(messages, config) {
@@ -107,5 +149,20 @@ function withMockDefault(config?: AIConfig): AIConfig {
   return {
     provider: config?.provider ?? 'mock',
     ...config,
+  };
+}
+
+function mergeRuntimeConfig(
+  runtimeConfig?: AIConfig,
+  overrideConfig?: AIConfig,
+): AIConfig | undefined {
+  if (!runtimeConfig && !overrideConfig) {
+    return undefined;
+  }
+
+  return {
+    ...runtimeConfig,
+    ...overrideConfig,
+    provider: overrideConfig?.provider ?? runtimeConfig?.provider,
   };
 }

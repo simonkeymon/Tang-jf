@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Card, PageContainer } from '@tang/shared';
 
 import { api } from '../../lib/api';
 
@@ -54,60 +55,76 @@ export default function ProgressPage() {
       .join(' ');
   }, [weights]);
 
-  return (
-    <main style={{ maxWidth: 860, margin: '0 auto', padding: 16, paddingBottom: 96 }}>
-      <h1>进度分析</h1>
+  const completionPercent = Math.min(
+    100,
+    Math.round(
+      ((summary?.actual_vs_target_calories.actual ?? 0) /
+        Math.max(1, summary?.actual_vs_target_calories.target ?? 1)) *
+        100,
+    ),
+  );
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button type="button" onClick={() => setRange('7d')}>
-          7天
-        </button>
-        <button type="button" onClick={() => setRange('30d')}>
-          30天
-        </button>
+  return (
+    <PageContainer>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">进度分析</h1>
+          <p className="page-subtitle">通过最近体重与热量对比，判断你是否在沿着目标前进。</p>
+        </div>
+        <div className="button-row">
+          <button type="button" className="pill" onClick={() => setRange('7d')}>
+            最近 7 天
+          </button>
+          <button type="button" className="pill" onClick={() => setRange('30d')}>
+            最近 30 天
+          </button>
+        </div>
       </div>
 
       {!hasData ? (
-        <p>暂无数据</p>
+        <Card className="surface-card">
+          <div className="empty-state">
+            <p>暂无数据。</p>
+            <p className="muted">先去记录体重或生成今日总结，再回来查看趋势。</p>
+          </div>
+        </Card>
       ) : (
-        <>
-          <section style={{ marginBottom: 24 }}>
+        <div className="content-grid">
+          <Card className="surface-card">
             <h2>体重趋势</h2>
-            <svg width="300" height="120" role="img" aria-label="weight-chart">
-              <polyline fill="none" stroke="#0070f3" strokeWidth="3" points={polyline} />
-            </svg>
-            <ul>
+            <div className="chart-frame">
+              <svg width="300" height="120" role="img" aria-label="weight-chart">
+                <polyline fill="none" stroke="#2751db" strokeWidth="3" points={polyline} />
+              </svg>
+            </div>
+            <ul className="list-reset">
               {weights.map((entry) => (
-                <li key={entry.date}>
-                  {entry.date}: {entry.weight_kg} kg
+                <li key={entry.date} className="table-like-row">
+                  <span>{entry.date}</span>
+                  <strong>{entry.weight_kg} kg</strong>
                 </li>
               ))}
             </ul>
-          </section>
+          </Card>
 
-          <section style={{ marginBottom: 24 }}>
+          <Card className="surface-card">
             <h2>热量对比</h2>
-            <p>实际：{summary?.actual_vs_target_calories.actual ?? 0} kcal</p>
-            <p>目标：{summary?.actual_vs_target_calories.target ?? 0} kcal</p>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 120 }}>
-              <div
-                style={{
-                  width: 40,
-                  height: `${Math.min(100, ((summary?.actual_vs_target_calories.actual ?? 0) / Math.max(1, summary?.actual_vs_target_calories.target ?? 1)) * 100)}%`,
-                  background: '#0070f3',
-                }}
-              />
-              <div style={{ width: 40, height: '100%', background: '#ddd' }} />
+            <div className="table-like-row">
+              <span>实际</span>
+              <strong>{summary?.actual_vs_target_calories.actual ?? 0} kcal</strong>
             </div>
-          </section>
-
-          <section>
-            <h2>营养占比</h2>
-            <p>蛋白质 / 碳水 / 脂肪 使用现有计划与食谱结构展示，详细图表后续增强。</p>
-          </section>
-        </>
+            <div className="table-like-row">
+              <span>目标</span>
+              <strong>{summary?.actual_vs_target_calories.target ?? 0} kcal</strong>
+            </div>
+            <div className="progress-bar" style={{ marginTop: 16 }}>
+              <div className="progress-fill" style={{ width: `${completionPercent}%` }} />
+            </div>
+            <p className="muted">当前热量完成度 {completionPercent}%</p>
+          </Card>
+        </div>
       )}
-    </main>
+    </PageContainer>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Card, PageContainer } from '@tang/shared';
 
 import { api } from '../../lib/api';
 
@@ -18,8 +19,8 @@ export default function AchievementPage() {
   }, []);
 
   async function loadAchievements() {
-    const res = await api.get('/achievements');
-    const next = res.data.achievements;
+    const response = await api.get('/achievements');
+    const next = response.data.achievements;
     setAchievements(next);
     if (next.some((item: Achievement) => item.unlocked)) {
       setMessage('🎉 有新的成就已解锁');
@@ -27,17 +28,33 @@ export default function AchievementPage() {
   }
 
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: 16, paddingBottom: 96 }}>
-      <h1>成就中心</h1>
-      {message ? <p>{message}</p> : null}
-      <ul>
+    <PageContainer>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">成就中心</h1>
+          <p className="page-subtitle">把连续打卡、计划执行和周目标完成感具象化。</p>
+        </div>
+      </div>
+
+      {message ? <div className="banner banner-success">{message}</div> : null}
+
+      <div className="stack">
         {achievements.map((achievement) => (
-          <li key={achievement.id} style={{ marginBottom: 12 }}>
-            <strong>{achievement.name}</strong> - {achievement.description} -{' '}
-            {achievement.unlocked ? '已解锁' : '未解锁'}
-          </li>
+          <Card key={achievement.id} className="surface-card">
+            <div className="table-like-row">
+              <div>
+                <strong>{achievement.name}</strong>
+                <p className="muted" style={{ margin: '6px 0 0' }}>
+                  {achievement.description}
+                </p>
+              </div>
+              <span className={`pill ${achievement.unlocked ? 'status-ok' : 'status-warning'}`}>
+                {achievement.unlocked ? '已解锁' : '未解锁'}
+              </span>
+            </div>
+          </Card>
         ))}
-      </ul>
-    </main>
+      </div>
+    </PageContainer>
   );
 }

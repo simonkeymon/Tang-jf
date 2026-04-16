@@ -1,17 +1,24 @@
-import { pgTable, serial, integer, varchar, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
+
 import { users } from './users.js';
 
 export const shopping_lists = pgTable('shopping_lists', {
-  id: serial('id').primaryKey(),
-  user_id: integer('user_id').references(() => users.id),
-  name: varchar('name', { length: 255 }),
-  created_at: timestamp('created_at').defaultNow(),
+  id: varchar('id', { length: 64 }).primaryKey(),
+  user_id: varchar('user_id', { length: 64 })
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  days: integer('days').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
 export const shopping_items = pgTable('shopping_items', {
-  id: serial('id').primaryKey(),
-  list_id: integer('list_id').references(() => shopping_lists.id),
-  product: varchar('product', { length: 255 }),
-  quantity: varchar('quantity', { length: 50 }),
-  acquired: boolean('acquired').notNull().default(false),
+  id: varchar('id', { length: 64 }).primaryKey(),
+  list_id: varchar('list_id', { length: 64 })
+    .notNull()
+    .references(() => shopping_lists.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  total_quantity: varchar('total_quantity', { length: 100 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull(),
+  purchased: boolean('purchased').notNull().default(false),
+  staple: boolean('staple').notNull().default(false),
 });

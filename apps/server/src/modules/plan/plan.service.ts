@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
 import type { AIChatMessage } from '@tang/shared';
+import { desc, eq } from 'drizzle-orm';
 
+import { getDb, isDatabaseEnabled } from '../../db/connection.js';
+import { plans } from '../../db/schema/index.js';
 import type { AIServerService } from '../ai/ai.service.js';
 import type { ProfileResponse, UserService } from '../user/user.service.js';
 import { buildPlanPrompt } from './plan.prompts.js';
@@ -45,10 +48,27 @@ export class PlanError extends Error {
 export function createPlanService(
   userService: UserService,
   aiService: AIServerService,
-): PlanService {
+): PlanService & { hydrate?(): Promise<void> } {
   const plansByUser = new Map<string, DietPlanRecord[]>();
 
   return {
+    async hydrate() {
+      const db = getDb();
+      if (!db || !isDatabaseEnabled()) {
+        return;
+      }
+
+      const records = await db.select().from(plans).orderBy(desc(plans.created_at));
+      plansByUser.clear();
+
+      for (const record of records) {
+        const mapped = mapPlanRecord(record);
+        const current = plansByUser.get(mapped.user_id) ?? [];
+        current.push(mapped);
+        plansByUser.set(mapped.user_id, current);
+      }
+    },
+
     async generatePlan(userId) {
       const profile = userService.getProfile(userId);
       if (!profile) {
@@ -57,8 +77,7 @@ export function createPlanService(
 
       const prompt = buildPlanPrompt({ profile });
       const aiMessages: AIChatMessage[] = [{ role: 'user', content: prompt }];
-      const aiResponse = await aiService.chat(aiMessages, {
-        provider: 'mock',
+      const aiResponse = await aiService.chatForUser(userId, aiMessages, {
         mockResponse: `Plan for ${profile.goal}`,
       });
 
@@ -68,8 +87,14 @@ export function createPlanService(
         ...existingPlan,
         status: 'archived' as const,
       }));
-
       plansByUser.set(userId, [plan, ...archivedPlans]);
+
+      const db = getDb();
+      if (db && isDatabaseEnabled()) {
+        await db.update(plans).set({ status: 'archived' }).where(eq(plans.user_id, userId));
+        await db.insert(plans).values(toPlanInsert(plan));
+      }
+
       return plan;
     },
 
@@ -123,4 +148,34 @@ function getMacroRatio(goal: string): MacroRatio {
     default:
       return { protein: 30, carbohydrate: 40, fat: 30 };
   }
+}
+
+function mapPlanRecord(record: typeof plans.$inferSelect): DietPlanRecord {
+  return {
+    id: record.id,
+    user_id: record.user_id,
+    goal: record.goal,
+    duration_days: record.duration_days,
+    status: record.status as 'active' | 'archived',
+    daily_calorie_target: record.daily_calorie_target,
+    macro_ratio: record.macro_ratio as MacroRatio,
+    phase_descriptions: record.phase_descriptions as string[],
+    notes: record.notes,
+    created_at: record.created_at.toISOString(),
+  };
+}
+
+function toPlanInsert(plan: DietPlanRecord): typeof plans.$inferInsert {
+  return {
+    id: plan.id,
+    user_id: plan.user_id,
+    goal: plan.goal,
+    duration_days: plan.duration_days,
+    status: plan.status,
+    daily_calorie_target: plan.daily_calorie_target,
+    macro_ratio: plan.macro_ratio,
+    phase_descriptions: plan.phase_descriptions,
+    notes: plan.notes,
+    created_at: new Date(plan.created_at),
+  };
 }

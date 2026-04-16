@@ -1,6 +1,7 @@
 import request from 'supertest';
 
 import { createTestApp } from '../../../test-utils/test-app.js';
+import { createAIConfigService } from '../ai-config.service.js';
 
 async function registerAndGetToken(
   app: ReturnType<typeof createTestApp>,
@@ -23,6 +24,29 @@ const VALID_CONFIG = {
 };
 
 describe('AI config endpoints', () => {
+  it('preserves existing api key when saving updated model with empty api_key', async () => {
+    const app = createTestApp();
+    const token = await registerAndGetToken(app, 'preserve@example.com');
+
+    await request(app)
+      .put('/api/ai/config')
+      .set('Authorization', `Bearer ${token}`)
+      .send(VALID_CONFIG);
+
+    const updateRes = await request(app)
+      .put('/api/ai/config')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        ...VALID_CONFIG,
+        api_key: '',
+        model: 'gpt-4.1-mini',
+      });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.config.model).toBe('gpt-4.1-mini');
+    expect(updateRes.body.config.api_key).toBe('sk-a***7890');
+  });
+
   it('stores encrypted user config and returns masked key', async () => {
     const app = createTestApp();
     const token = await registerAndGetToken(app, 'user@example.com');
@@ -89,5 +113,43 @@ describe('AI config endpoints', () => {
 
     expect(putRes.status).toBe(403);
     expect(putRes.body).toEqual({ message: 'Admin access required' });
+  });
+});
+
+describe('AI config runtime resolution', () => {
+  it('prefers user custom config and falls back to platform config', () => {
+    const service = createAIConfigService({ encryptionSecret: 'test-secret' });
+
+    service.setPlatformConfig({
+      base_url: 'https://platform.example.com/v1',
+      api_key: 'platform-secret',
+      model: 'platform-model',
+      temperature: 0.3,
+      max_tokens: 600,
+      is_custom: false,
+    });
+
+    expect(service.getRuntimeConfigForUser('user-1')).toMatchObject({
+      provider: 'openai-compatible',
+      baseUrl: 'https://platform.example.com/v1',
+      apiKey: 'platform-secret',
+      model: 'platform-model',
+    });
+
+    service.setUserConfig('user-1', {
+      base_url: 'https://user.example.com/v1',
+      api_key: 'user-secret',
+      model: 'user-model',
+      temperature: 0.1,
+      max_tokens: 700,
+      is_custom: true,
+    });
+
+    expect(service.getRuntimeConfigForUser('user-1')).toMatchObject({
+      provider: 'openai-compatible',
+      baseUrl: 'https://user.example.com/v1',
+      apiKey: 'user-secret',
+      model: 'user-model',
+    });
   });
 });

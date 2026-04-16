@@ -1,12 +1,17 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 
 import { createApp } from './app.js';
+import { runDatabaseMigrations } from './db/connection.js';
 
-dotenv.config();
-
-const app = createApp();
 const port = Number(process.env.PORT) || 3002;
 
-app.listen(port, () => {
-  console.log(`Tang server listening on port ${port}`);
-});
+async function main() {
+  await runDatabaseMigrations();
+  const app = await createApp();
+
+  app.listen(port, () => {
+    console.log(`Tang server listening on port ${port}`);
+  });
+}
+
+void main();

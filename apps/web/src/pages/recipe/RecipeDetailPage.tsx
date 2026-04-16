@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { Button, Card, PageContainer } from '@tang/shared';
 
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../utils/error-handler';
 
 type RecipeDetail = {
   id: string;
@@ -22,57 +24,96 @@ type RecipeDetail = {
 export default function RecipeDetailPage() {
   const { id } = useParams();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      return;
+    }
+
     void loadRecipe(id);
   }, [id]);
 
   async function loadRecipe(recipeId: string) {
-    const res = await api.get(`/recipe/${recipeId}`);
-    setRecipe(res.data.recipe);
+    try {
+      const response = await api.get(`/recipe/${recipeId}`);
+      setRecipe(response.data.recipe);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    }
   }
 
   if (!recipe) {
-    return <main style={{ padding: 16 }}>加载中...</main>;
+    return <PageContainer>{error || '加载食谱详情中...'}</PageContainer>;
   }
 
   return (
-    <main style={{ maxWidth: 860, margin: '0 auto', padding: 16 }}>
-      <h1>{recipe.title}</h1>
-      <p>
-        {recipe.cuisine_type} · 约 {recipe.cook_time_minutes} 分钟
-      </p>
+    <PageContainer>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">{recipe.title}</h1>
+          <p className="page-subtitle">
+            {recipe.cuisine_type} · 约 {recipe.cook_time_minutes} 分钟
+          </p>
+        </div>
+        <Link to="/recipe/today">
+          <Button type="button" variant="ghost">
+            返回今日食谱
+          </Button>
+        </Link>
+      </div>
 
-      <section>
-        <h2>食材清单</h2>
-        <ul>
-          {recipe.ingredients.map((ingredient) => (
-            <li key={`${ingredient.name}-${ingredient.quantity}`}>
-              {ingredient.name} {ingredient.quantity}
-              {ingredient.unit}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div className="content-grid">
+        <Card className="surface-card">
+          <h2>食材清单</h2>
+          <ul className="list-reset">
+            {recipe.ingredients.map((ingredient) => (
+              <li key={`${ingredient.name}-${ingredient.quantity}`} className="table-like-row">
+                <span>{ingredient.name}</span>
+                <strong>
+                  {ingredient.quantity}
+                  {ingredient.unit}
+                </strong>
+              </li>
+            ))}
+          </ul>
+        </Card>
 
-      <section>
-        <h2>烹饪步骤</h2>
-        <ol>
-          {recipe.steps.map((step) => (
-            <li key={step.order}>{step.instruction}</li>
-          ))}
-        </ol>
-      </section>
+        <Card className="surface-card">
+          <h2>营养信息</h2>
+          <div className="table-like-row">
+            <span>热量</span>
+            <strong>{recipe.nutrition.calories} kcal</strong>
+          </div>
+          <div className="table-like-row">
+            <span>蛋白质</span>
+            <strong>{recipe.nutrition.protein} g</strong>
+          </div>
+          <div className="table-like-row">
+            <span>碳水</span>
+            <strong>{recipe.nutrition.carbohydrate} g</strong>
+          </div>
+          <div className="table-like-row">
+            <span>脂肪</span>
+            <strong>{recipe.nutrition.fat} g</strong>
+          </div>
+          <div className="table-like-row">
+            <span>纤维</span>
+            <strong>{recipe.nutrition.fiber} g</strong>
+          </div>
+        </Card>
 
-      <section>
-        <h2>营养信息</h2>
-        <p>热量：{recipe.nutrition.calories} kcal</p>
-        <p>蛋白质：{recipe.nutrition.protein} g</p>
-        <p>碳水：{recipe.nutrition.carbohydrate} g</p>
-        <p>脂肪：{recipe.nutrition.fat} g</p>
-        <p>纤维：{recipe.nutrition.fiber} g</p>
-      </section>
-    </main>
+        <Card className="surface-card" style={{ gridColumn: '1 / -1' }}>
+          <h2>烹饪步骤</h2>
+          <ol style={{ margin: 0, paddingLeft: 20 }}>
+            {recipe.steps.map((step) => (
+              <li key={step.order} style={{ marginBottom: 12 }}>
+                {step.instruction}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      </div>
+    </PageContainer>
   );
 }

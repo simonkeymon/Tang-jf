@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { api } from '../../lib/api';
-import { useAuth } from '../../hooks/useAuth';
-import { Button, Input, PageContainer, Select } from '@tang/shared';
+import { Button, Card, Input, PageContainer, Select } from '@tang/shared';
+import { getErrorMessage } from '../../utils/error-handler';
 
 type ProfileForm = {
   gender: 'male' | 'female';
@@ -38,10 +39,12 @@ const DEFAULT_FORM: ProfileForm = {
 };
 
 export default function ProfilePage() {
-  const { logout } = useAuth();
   const [form, setForm] = useState<ProfileForm>(DEFAULT_FORM);
   const [computed, setComputed] = useState<ComputedProfile | null>(null);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     void loadProfile();
@@ -49,8 +52,9 @@ export default function ProfilePage() {
 
   async function loadProfile() {
     try {
-      const res = await api.get('/user/profile');
-      const profile = res.data.profile;
+      setLoading(true);
+      const response = await api.get('/user/profile');
+      const profile = response.data.profile;
       setForm({
         gender: profile.gender,
         age: profile.age,
@@ -66,140 +70,193 @@ export default function ProfilePage() {
         tdee: profile.tdee,
         daily_calorie_target: profile.daily_calorie_target,
       });
+      setMessage('');
     } catch {
       setMessage('当前还没有个人资料，请先填写。');
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSaving(true);
+    setError('');
     setMessage('');
 
-    const payload = {
-      gender: form.gender,
-      age: Number(form.age),
-      height_cm: Number(form.height_cm),
-      weight_kg: Number(form.weight_kg),
-      goal: form.goal,
-      activity_level: form.activity_level,
-      allergies: splitItems(form.allergies),
-      dietary_restrictions: splitItems(form.dietary_restrictions),
-    };
+    try {
+      const payload = {
+        gender: form.gender,
+        age: Number(form.age),
+        height_cm: Number(form.height_cm),
+        weight_kg: Number(form.weight_kg),
+        goal: form.goal,
+        activity_level: form.activity_level,
+        allergies: splitItems(form.allergies),
+        dietary_restrictions: splitItems(form.dietary_restrictions),
+      };
 
-    const res = await api.put('/user/profile', payload);
-    const profile = res.data.profile;
-    setComputed({
-      bmr: profile.bmr,
-      tdee: profile.tdee,
-      daily_calorie_target: profile.daily_calorie_target,
-    });
-    setMessage('保存成功');
+      const response = await api.put('/user/profile', payload);
+      const profile = response.data.profile;
+      setComputed({
+        bmr: profile.bmr,
+        tdee: profile.tdee,
+        daily_calorie_target: profile.daily_calorie_target,
+      });
+      setMessage('资料已保存，现在可以去生成饮食计划。');
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <PageContainer>
-      <h1>个人资料</h1>
-      <p>填写你的基础信息，系统会计算 BMR / TDEE 和每日建议热量。</p>
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-        <label>
-          性别
-          <Select
-            value={form.gender}
-            onChange={(e) => setForm({ ...form, gender: e.target.value as 'male' | 'female' })}
-          >
-            <option value="male">男</option>
-            <option value="female">女</option>
-          </Select>
-        </label>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">个人资料</h1>
+          <p className="page-subtitle">这里决定系统如何估算你的基础代谢、总能耗与每日热量目标。</p>
+        </div>
+        <Link to="/plan">
+          <Button type="button" variant="ghost">
+            去看饮食计划
+          </Button>
+        </Link>
+      </div>
 
-        <label>
-          年龄
-          <Input
-            type="number"
-            value={form.age}
-            onChange={(e) => setForm({ ...form, age: Number(e.target.value) })}
-          />
-        </label>
+      {message ? <div className="banner banner-success">{message}</div> : null}
+      {error ? <div className="banner banner-error">{error}</div> : null}
 
-        <label>
-          身高 (cm)
-          <Input
-            type="number"
-            value={form.height_cm}
-            onChange={(e) => setForm({ ...form, height_cm: Number(e.target.value) })}
-          />
-        </label>
+      <div className="content-grid">
+        <Card className="surface-card">
+          <h2>基础信息</h2>
+          <form className="form-grid" onSubmit={handleSubmit}>
+            <div className="form-grid two-columns">
+              <label className="field">
+                <span className="field-label">性别</span>
+                <Select
+                  value={form.gender}
+                  onChange={(event) =>
+                    setForm({ ...form, gender: event.target.value as 'male' | 'female' })
+                  }
+                >
+                  <option value="male">男</option>
+                  <option value="female">女</option>
+                </Select>
+              </label>
 
-        <label>
-          体重 (kg)
-          <Input
-            type="number"
-            value={form.weight_kg}
-            onChange={(e) => setForm({ ...form, weight_kg: Number(e.target.value) })}
-          />
-        </label>
+              <label className="field">
+                <span className="field-label">年龄</span>
+                <Input
+                  type="number"
+                  value={form.age}
+                  onChange={(event) => setForm({ ...form, age: Number(event.target.value) })}
+                />
+              </label>
 
-        <label>
-          目标
-          <Select
-            value={form.goal}
-            onChange={(e) => setForm({ ...form, goal: e.target.value as ProfileForm['goal'] })}
-          >
-            <option value="lose">减脂</option>
-            <option value="maintain">维持</option>
-            <option value="gain">增肌</option>
-          </Select>
-        </label>
+              <label className="field">
+                <span className="field-label">身高 (cm)</span>
+                <Input
+                  type="number"
+                  value={form.height_cm}
+                  onChange={(event) => setForm({ ...form, height_cm: Number(event.target.value) })}
+                />
+              </label>
 
-        <label>
-          活动水平
-          <Select
-            value={form.activity_level}
-            onChange={(e) =>
-              setForm({ ...form, activity_level: e.target.value as ProfileForm['activity_level'] })
-            }
-          >
-            <option value="sedentary">久坐</option>
-            <option value="lightly_active">轻度活动</option>
-            <option value="moderately_active">中度活动</option>
-            <option value="very_active">高强度活动</option>
-            <option value="extra_active">极高强度活动</option>
-          </Select>
-        </label>
+              <label className="field">
+                <span className="field-label">体重 (kg)</span>
+                <Input
+                  type="number"
+                  value={form.weight_kg}
+                  onChange={(event) => setForm({ ...form, weight_kg: Number(event.target.value) })}
+                />
+              </label>
 
-        <label>
-          过敏食物（用逗号分隔）
-          <Input
-            value={form.allergies}
-            onChange={(e) => setForm({ ...form, allergies: e.target.value })}
-          />
-        </label>
+              <label className="field">
+                <span className="field-label">目标</span>
+                <Select
+                  value={form.goal}
+                  onChange={(event) =>
+                    setForm({ ...form, goal: event.target.value as ProfileForm['goal'] })
+                  }
+                >
+                  <option value="lose">减脂</option>
+                  <option value="maintain">维持</option>
+                  <option value="gain">增肌</option>
+                </Select>
+              </label>
 
-        <label>
-          饮食禁忌（用逗号分隔）
-          <Input
-            value={form.dietary_restrictions}
-            onChange={(e) => setForm({ ...form, dietary_restrictions: e.target.value })}
-          />
-        </label>
+              <label className="field">
+                <span className="field-label">活动水平</span>
+                <Select
+                  value={form.activity_level}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      activity_level: event.target.value as ProfileForm['activity_level'],
+                    })
+                  }
+                >
+                  <option value="sedentary">久坐</option>
+                  <option value="lightly_active">轻度活动</option>
+                  <option value="moderately_active">中度活动</option>
+                  <option value="very_active">高强度活动</option>
+                  <option value="extra_active">极高强度活动</option>
+                </Select>
+              </label>
+            </div>
 
-        <Button type="submit">保存</Button>
-      </form>
+            <label className="field">
+              <span className="field-label">过敏食物</span>
+              <Input
+                value={form.allergies}
+                onChange={(event) => setForm({ ...form, allergies: event.target.value })}
+                placeholder="例如：花生, 海鲜"
+              />
+              <p className="field-hint">用逗号分隔，生成食谱时会尽量规避。</p>
+            </label>
 
-      {computed ? (
-        <section style={{ marginTop: 24 }}>
-          <h2>计算结果</h2>
-          <p>BMR: {computed.bmr}</p>
-          <p>TDEE: {computed.tdee}</p>
-          <p>每日建议热量: {computed.daily_calorie_target}</p>
-        </section>
-      ) : null}
+            <label className="field">
+              <span className="field-label">饮食禁忌</span>
+              <Input
+                value={form.dietary_restrictions}
+                onChange={(event) => setForm({ ...form, dietary_restrictions: event.target.value })}
+                placeholder="例如：少油, 不吃内脏"
+              />
+            </label>
 
-      {message ? <p>{message}</p> : null}
+            <Button type="submit" disabled={saving}>
+              {saving ? '保存中...' : '保存资料'}
+            </Button>
+          </form>
+        </Card>
 
-      <Button type="button" onClick={logout} style={{ marginTop: 24 }}>
-        退出登录
-      </Button>
+        <Card className="surface-card">
+          <h2>系统计算结果</h2>
+          {loading ? (
+            <p className="muted">正在读取资料...</p>
+          ) : computed ? (
+            <div className="stack">
+              <Metric label="BMR 基础代谢" value={`${computed.bmr} kcal`} />
+              <Metric label="TDEE 总能耗" value={`${computed.tdee} kcal`} />
+              <Metric label="每日建议热量" value={`${computed.daily_calorie_target} kcal`} />
+              <div className="button-row">
+                <Link to="/plan">
+                  <Button type="button" variant="secondary">
+                    下一步：生成计划
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>还没有计算结果。</p>
+              <p className="muted">保存基础资料后，这里会自动展示推荐热量。</p>
+            </div>
+          )}
+        </Card>
+      </div>
     </PageContainer>
   );
 }
@@ -209,4 +266,13 @@ function splitItems(value: string) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="table-like-row">
+      <span className="muted">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
 }

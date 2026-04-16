@@ -1,9 +1,10 @@
-import { Link, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Route, Routes } from 'react-router-dom';
 
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import HomePage from './pages/HomePage';
 import PlanPage from './pages/plan/PlanPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import FoodAnalysisPage from './pages/food-analysis/FoodAnalysisPage';
@@ -21,31 +22,38 @@ import RecipeDetailPage from './pages/recipe/RecipeDetailPage';
 import ProtectedRoute from './router/ProtectedRoute';
 import ErrorPage from './components/ErrorPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AppShell } from './components/AppShell';
+import { useAuth } from './hooks/useAuth';
 
 export default function App() {
+  const { initialize } = useAuth();
+
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
+
   return (
     <ErrorBoundary>
-      <nav>
-        <Link to="/">Home</Link> | <Link to="/login">Login</Link> |{' '}
-        <Link to="/register">Register</Link>
-      </nav>
       <Routes>
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<PlanPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/food-analysis" element={<FoodAnalysisPage />} />
-          <Route path="/tracking" element={<TrackingPage />} />
-          <Route path="/progress" element={<ProgressPage />} />
-          <Route path="/nutrition" element={<NutritionPage />} />
-          <Route path="/dining-out" element={<DiningOutPage />} />
-          <Route path="/settings/ai" element={<AIConfigPage />} />
-          <Route path="/summary/today" element={<DailySummaryPage />} />
-          <Route path="/summary/:date" element={<DailySummaryPage />} />
-          <Route path="/shopping" element={<ShoppingListPage />} />
-          <Route path="/achievements" element={<AchievementPage />} />
-          <Route path="/report" element={<ReportPage />} />
-          <Route path="/recipe/today" element={<DailyRecipePage />} />
-          <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+          <Route element={<AppShell />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/plan" element={<PlanPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/food-analysis" element={<FoodAnalysisPage />} />
+            <Route path="/tracking" element={<TrackingPage />} />
+            <Route path="/progress" element={<ProgressPage />} />
+            <Route path="/nutrition" element={<NutritionPage />} />
+            <Route path="/dining-out" element={<DiningOutPage />} />
+            <Route path="/settings/ai" element={<AIConfigPage />} />
+            <Route path="/summary/today" element={<DailySummaryPage />} />
+            <Route path="/summary/:date" element={<DailySummaryPage />} />
+            <Route path="/shopping" element={<ShoppingListPage />} />
+            <Route path="/achievements" element={<AchievementPage />} />
+            <Route path="/report" element={<ReportPage />} />
+            <Route path="/recipe/today" element={<DailyRecipePage />} />
+            <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+          </Route>
         </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

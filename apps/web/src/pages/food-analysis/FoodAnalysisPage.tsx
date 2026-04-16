@@ -1,6 +1,8 @@
 import { ChangeEvent, useState } from 'react';
+import { Button, Card, PageContainer } from '@tang/shared';
 
-import { api } from '../../lib/api';
+import { api, resolveApiAssetUrl } from '../../lib/api';
+import { getErrorMessage } from '../../utils/error-handler';
 
 type FoodAnalysisResult = {
   id: string;
@@ -19,6 +21,7 @@ export default function FoodAnalysisPage() {
   const [previewUrl, setPreviewUrl] = useState('');
   const [analysis, setAnalysis] = useState<FoodAnalysisResult | null>(null);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -26,75 +29,103 @@ export default function FoodAnalysisPage() {
     setFile(nextFile);
     setAnalysis(null);
     setMessage('');
+    setError('');
 
     if (nextFile) {
       setPreviewUrl(URL.createObjectURL(nextFile));
-    } else {
-      setPreviewUrl('');
+      return;
     }
+
+    setPreviewUrl('');
   }
 
   async function handleAnalyze() {
     if (!file) {
-      setMessage('请先选择图片');
+      setError('请先选择图片');
       return;
     }
 
     setLoading(true);
     setMessage('');
+    setError('');
+
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const uploadRes = await api.post('/upload/image', formData, {
+      const uploadResponse = await api.post('/upload/image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      const imageUrl = uploadRes.data.file.url;
-      const analysisRes = await api.post('/food/analyze', { image_url: imageUrl });
-      setAnalysis(analysisRes.data.analysis);
-    } catch {
-      setMessage('分析失败');
+      const imageUrl = resolveApiAssetUrl(uploadResponse.data.file.url);
+      const analysisResponse = await api.post('/food/analyze', { image_url: imageUrl });
+      setAnalysis(analysisResponse.data.analysis);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: 16, paddingBottom: 96 }}>
-      <h1>食物拍照分析</h1>
-      <input type="file" accept="image/*" onChange={handleFileChange} />
-      {previewUrl ? (
-        <div style={{ marginTop: 16 }}>
-          <img src={previewUrl} alt="预览" style={{ maxWidth: '100%', borderRadius: 8 }} />
+    <PageContainer>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">食物拍照分析</h1>
+          <p className="page-subtitle">上传一张食物照片，快速估算餐盘热量与组成。</p>
         </div>
-      ) : null}
-      <div style={{ marginTop: 16 }}>
-        <button type="button" onClick={handleAnalyze} disabled={loading}>
-          {loading ? '分析中...' : '分析热量'}
-        </button>
+        <Button type="button" onClick={handleAnalyze} disabled={loading}>
+          {loading ? '分析中...' : '开始分析'}
+        </Button>
       </div>
-      {message ? <p>{message}</p> : null}
 
-      {analysis ? (
-        <section style={{ marginTop: 24 }}>
+      {message ? <div className="banner banner-success">{message}</div> : null}
+      {error ? <div className="banner banner-error">{error}</div> : null}
+
+      <div className="content-grid">
+        <Card className="surface-card">
+          <h2>上传图片</h2>
+          <input type="file" accept="image/*" onChange={handleFileChange} />
+          {previewUrl ? (
+            <div style={{ marginTop: 16 }}>
+              <img src={previewUrl} alt="预览" style={{ maxWidth: '100%', borderRadius: 16 }} />
+            </div>
+          ) : (
+            <div className="empty-state" style={{ marginTop: 16 }}>
+              <p>选择图片后，这里会显示预览。</p>
+            </div>
+          )}
+        </Card>
+
+        <Card className="surface-card">
           <h2>分析结果</h2>
-          <p>总热量：{analysis.total_calories} kcal</p>
-          <p>置信度：{analysis.confidence}</p>
-          <ul>
-            {analysis.foods.map((food) => (
-              <li key={food.id}>
-                {food.name} · {food.estimated_portion} · {food.estimated_calories} kcal
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={() => setMessage('已记录到今日午餐（入口已接好，详细整合稍后补全）')}
-          >
-            记录到今日午餐
-          </button>
-        </section>
-      ) : null}
-    </main>
+          {!analysis ? (
+            <div className="empty-state">
+              <p>还没有分析结果。</p>
+            </div>
+          ) : (
+            <div className="stack">
+              <div className="table-like-row">
+                <span>总热量</span>
+                <strong>{analysis.total_calories} kcal</strong>
+              </div>
+              <div className="table-like-row">
+                <span>置信度</span>
+                <strong>{analysis.confidence}</strong>
+              </div>
+              <ul className="list-reset">
+                {analysis.foods.map((food) => (
+                  <li key={food.id} className="table-like-row">
+                    <span>
+                      {food.name} · {food.estimated_portion}
+                    </span>
+                    <strong>{food.estimated_calories} kcal</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      </div>
+    </PageContainer>
   );
 }

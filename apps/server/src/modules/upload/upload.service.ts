@@ -4,6 +4,9 @@ import { randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
 
+import { getDb, isDatabaseEnabled } from '../../db/connection.js';
+import { uploads } from '../../db/schema/index.js';
+
 export interface StoredUpload {
   filename: string;
   relativePath: string;
@@ -11,7 +14,7 @@ export interface StoredUpload {
 }
 
 export interface UploadService {
-  saveImage(file: Express.Multer.File): Promise<StoredUpload>;
+  saveImage(file: Express.Multer.File, userId?: string): Promise<StoredUpload>;
 }
 
 const DEFAULT_UPLOAD_ROOT = path.resolve(process.cwd(), 'uploads');
@@ -24,7 +27,7 @@ export function createUploadService(options?: {
   const publicBaseUrl = options?.publicBaseUrl ?? '';
 
   return {
-    async saveImage(file) {
+    async saveImage(file, userId) {
       const now = new Date();
       const year = String(now.getFullYear());
       const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -44,13 +47,28 @@ export function createUploadService(options?: {
 
       await writeFile(outputPath, optimized);
 
-      return {
+      const stored = {
         filename,
         relativePath,
         url: publicBaseUrl
           ? `${publicBaseUrl.replace(/\/$/, '')}/${relativePath}`
           : `/uploads/${relativePath}`,
       };
+
+      const db = getDb();
+      if (db && isDatabaseEnabled()) {
+        await db.insert(uploads).values({
+          id: randomUUID(),
+          user_id: userId ?? null,
+          filename,
+          relative_path: relativePath,
+          url: stored.url,
+          mime_type: file.mimetype,
+          created_at: new Date(),
+        });
+      }
+
+      return stored;
     },
   };
 }

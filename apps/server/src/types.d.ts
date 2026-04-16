@@ -7,6 +7,7 @@ import type { AuthenticatedUser } from './modules/auth/auth.service.js';
 declare module 'pg';
 declare module 'drizzle-orm/pg-core';
 declare module 'drizzle-orm/node-postgres';
+declare module 'drizzle-orm/node-postgres/migrator';
 declare module 'drizzle-kit';
 
 declare global {

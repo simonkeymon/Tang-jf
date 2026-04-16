@@ -66,6 +66,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.4.4
+        version: 0.4.4
       '@tang/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -80,7 +83,7 @@ importers:
         version: 0.31.10
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)
+        version: 0.45.2(@electric-sql/pglite@0.4.4)(@types/pg@8.20.0)(pg@8.20.0)
       express:
         specifier: ^4.18.2
         version: 4.22.1
@@ -373,6 +376,10 @@ packages:
 
   /@drizzle-team/brocli@0.10.2:
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+    dev: false
+
+  /@electric-sql/pglite@0.4.4:
+    resolution: {integrity: sha512-g/6CWAJ4XOkObWCWAQ2IReZD8VvsDy3poRHSKvpRR2F96F8WJ3HVbjpso3gN7l0q6QPPgvxSSpl/qo5k8a7mkQ==}
     dev: false
 
   /@emnapi/core@1.9.2:
@@ -2496,7 +2503,7 @@ packages:
       tsx: 4.21.0
     dev: false
 
-  /drizzle-orm@0.45.2(@types/pg@8.20.0)(pg@8.20.0):
+  /drizzle-orm@0.45.2(@electric-sql/pglite@0.4.4)(@types/pg@8.20.0)(pg@8.20.0):
     resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
@@ -2588,6 +2595,7 @@ packages:
       sqlite3:
         optional: true
     dependencies:
+      '@electric-sql/pglite': 0.4.4
       '@types/pg': 8.20.0
       pg: 8.20.0
     dev: false

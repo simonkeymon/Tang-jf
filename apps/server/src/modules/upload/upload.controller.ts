@@ -23,7 +23,7 @@ export function createUploadRouter(
     }
 
     try {
-      const stored = await uploadService.saveImage(req.file);
+      const stored = await uploadService.saveImage(req.file, req.user.id);
       res.json({ file: stored });
     } catch (error) {
       res.status(500).json({ message: error instanceof Error ? error.message : 'Upload failed' });

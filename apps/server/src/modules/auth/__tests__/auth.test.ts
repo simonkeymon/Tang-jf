@@ -3,6 +3,64 @@ import request from 'supertest';
 import { createTestApp } from '../../../test-utils/test-app.js';
 
 describe('Auth endpoints', () => {
+  it('supports first-admin bootstrap only once', async () => {
+    const app = createTestApp();
+
+    const statusBefore = await request(app).get('/api/auth/admin-bootstrap/status');
+    expect(statusBefore.status).toBe(200);
+    expect(statusBefore.body).toEqual({ needsBootstrap: true });
+
+    const bootstrapRes = await request(app).post('/api/auth/admin-bootstrap/register').send({
+      email: 'owner@example.com',
+      password: 'password123',
+    });
+
+    expect(bootstrapRes.status).toBe(201);
+    expect(bootstrapRes.body.user).toMatchObject({
+      email: 'owner@example.com',
+      role: 'admin',
+    });
+
+    const statusAfter = await request(app).get('/api/auth/admin-bootstrap/status');
+    expect(statusAfter.status).toBe(200);
+    expect(statusAfter.body).toEqual({ needsBootstrap: false });
+
+    const secondBootstrap = await request(app).post('/api/auth/admin-bootstrap/register').send({
+      email: 'owner2@example.com',
+      password: 'password123',
+    });
+
+    expect(secondBootstrap.status).toBe(409);
+    expect(secondBootstrap.body).toEqual({
+      message: 'Admin account has already been initialized',
+    });
+  });
+
+  it('supports browser CORS requests for auth endpoints', async () => {
+    const app = createTestApp();
+
+    const preflightRes = await request(app)
+      .options('/api/auth/login')
+      .set('Origin', 'http://localhost:5173')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type,authorization');
+
+    expect(preflightRes.status).toBe(204);
+    expect(preflightRes.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(preflightRes.headers['access-control-allow-methods']).toContain('POST');
+
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .set('Origin', 'http://localhost:5173')
+      .send({
+        email: 'cors@example.com',
+        password: 'password123',
+      });
+
+    expect(registerRes.status).toBe(201);
+    expect(registerRes.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+  });
+
   it('POST /api/auth/register registers a user', async () => {
     const app = createTestApp();
 
@@ -18,6 +76,7 @@ describe('Auth endpoints', () => {
       user: {
         id: expect.any(String),
         email: 'user@example.com',
+        role: 'user',
       },
     });
     expect(res.body.user.passwordHash).toBeUndefined();
@@ -59,6 +118,7 @@ describe('Auth endpoints', () => {
       user: {
         id: expect.any(String),
         email: 'user@example.com',
+        role: 'user',
       },
     });
   });
@@ -85,6 +145,7 @@ describe('Auth endpoints', () => {
       user: {
         id: loginRes.body.user.id,
         email: 'user@example.com',
+        role: 'user',
       },
     });
   });
@@ -125,6 +186,7 @@ describe('Auth endpoints', () => {
       user: {
         id: registerRes.body.user.id,
         email: 'user@example.com',
+        role: 'user',
       },
     });
     expect(res.body.accessToken).not.toBe(registerRes.body.accessToken);
@@ -162,5 +224,38 @@ describe('Auth endpoints', () => {
 
     expect(refreshRes.status).toBe(401);
     expect(refreshRes.body).toEqual({ message: 'Invalid refresh token' });
+  });
+
+  it('supports forgot-password and reset-password flow', async () => {
+    const app = createTestApp();
+
+    await request(app).post('/api/auth/register').send({
+      email: 'reset@example.com',
+      password: 'password123',
+    });
+
+    const forgotRes = await request(app).post('/api/auth/forgot-password').send({
+      email: 'reset@example.com',
+    });
+
+    expect(forgotRes.status).toBe(200);
+    expect(forgotRes.body.success).toBe(true);
+    expect(forgotRes.body.resetToken).toEqual(expect.any(String));
+
+    const resetRes = await request(app).post('/api/auth/reset-password').send({
+      token: forgotRes.body.resetToken,
+      password: 'newpassword123',
+    });
+
+    expect(resetRes.status).toBe(200);
+    expect(resetRes.body).toEqual({ success: true });
+
+    const loginRes = await request(app).post('/api/auth/login').send({
+      email: 'reset@example.com',
+      password: 'newpassword123',
+    });
+
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.user.email).toBe('reset@example.com');
   });
 });

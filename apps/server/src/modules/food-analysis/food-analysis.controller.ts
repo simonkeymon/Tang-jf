@@ -28,7 +28,11 @@ export function createFoodAnalysisRouter(
     }
 
     try {
-      const analysis = await foodAnalysisService.analyze(parsed.data.image_url, parsed.data.note);
+      const analysis = await foodAnalysisService.analyze(
+        req.user.id,
+        parsed.data.image_url,
+        parsed.data.note,
+      );
       res.json({ analysis });
     } catch (error) {
       sendFoodAnalysisError(res, error);

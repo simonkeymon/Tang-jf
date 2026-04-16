@@ -13,7 +13,7 @@ export function createAdminGuard(requireAuth: RequestHandler): RequestHandler {
         return;
       }
 
-      if (req.user.email !== 'admin@example.com') {
+      if (req.user.role !== 'admin') {
         res.status(403).json({ message: 'Admin access required' });
         return;
       }

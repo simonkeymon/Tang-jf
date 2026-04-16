@@ -6,6 +6,11 @@ describe('Health endpoint', () => {
     const app = createTestApp();
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true, name: 'tang-server' });
+    expect(res.body).toEqual({
+      ok: true,
+      name: 'tang-server',
+      persistence: 'memory',
+      engine: 'memory',
+    });
   });
 });

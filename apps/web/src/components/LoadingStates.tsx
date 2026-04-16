@@ -1,7 +1,28 @@
 export function SkeletonCard() {
-  return <div style={{ height: 80, background: '#eee', borderRadius: 8, marginBottom: 12 }} />;
+  return (
+    <div
+      style={{
+        height: 96,
+        borderRadius: 18,
+        marginBottom: 12,
+        background: 'linear-gradient(90deg, rgba(232,238,251,1), rgba(245,248,255,1))',
+      }}
+    />
+  );
 }
 
 export function FullPageLoading() {
-  return <div style={{ padding: 24 }}>加载中...</div>;
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 24,
+        color: '#5f6d87',
+      }}
+    >
+      正在加载你的健康数据...
+    </div>
+  );
 }

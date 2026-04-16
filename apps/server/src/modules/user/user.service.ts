@@ -1,3 +1,7 @@
+import { eq } from 'drizzle-orm';
+
+import { getDb, isDatabaseEnabled } from '../../db/connection.js';
+import { profiles } from '../../db/schema/index.js';
 import type { PatchProfileInput, ProfileInput } from './user.validator.js';
 
 export interface StoredProfile {
@@ -39,11 +43,6 @@ const GOAL_CALORIE_OFFSETS: Record<string, number> = {
   gain: 500,
 };
 
-/**
- * Mifflin-St Jeor BMR formula:
- *   Male:   10 * weight_kg + 6.25 * height_cm - 5 * age + 5
- *   Female: 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
- */
 function calculateBmr(profile: StoredProfile): number {
   const base = 10 * profile.weight_kg + 6.25 * profile.height_cm - 5 * profile.age;
   return Math.round(profile.gender === 'male' ? base + 5 : base - 161);
@@ -67,12 +66,25 @@ function toProfileResponse(profile: StoredProfile): ProfileResponse {
   return { ...profile, bmr, tdee, daily_calorie_target };
 }
 
-export function createUserService(): UserService {
-  const profiles = new Map<string, StoredProfile>();
+export function createUserService(): UserService & { hydrate?(): Promise<void> } {
+  const profilesByUser = new Map<string, StoredProfile>();
 
   return {
+    async hydrate() {
+      const db = getDb();
+      if (!db || !isDatabaseEnabled()) {
+        return;
+      }
+
+      const records = await db.select().from(profiles);
+      profilesByUser.clear();
+      for (const record of records) {
+        profilesByUser.set(record.user_id, mapProfileRecord(record));
+      }
+    },
+
     getProfile(userId) {
-      const profile = profiles.get(userId);
+      const profile = profilesByUser.get(userId);
       if (!profile) return null;
       return toProfileResponse(profile);
     },
@@ -89,35 +101,74 @@ export function createUserService(): UserService {
         allergies: input.allergies ?? [],
       };
 
-      profiles.set(userId, profile);
+      profilesByUser.set(userId, profile);
+      persistProfile(userId, profile);
       return toProfileResponse(profile);
     },
 
     patchProfile(userId, input) {
-      const existing = profiles.get(userId);
+      const existing = profilesByUser.get(userId);
       if (!existing) return null;
 
       const updated: StoredProfile = { ...existing, ...input };
-      profiles.set(userId, updated);
+      profilesByUser.set(userId, updated);
+      persistProfile(userId, updated);
       return toProfileResponse(updated);
     },
 
     updateAllergies(userId, allergies) {
-      const existing = profiles.get(userId);
+      const existing = profilesByUser.get(userId);
       if (!existing) return null;
 
       const updated: StoredProfile = { ...existing, allergies };
-      profiles.set(userId, updated);
+      profilesByUser.set(userId, updated);
+      persistProfile(userId, updated);
       return toProfileResponse(updated);
     },
 
     updateRestrictions(userId, dietary_restrictions) {
-      const existing = profiles.get(userId);
+      const existing = profilesByUser.get(userId);
       if (!existing) return null;
 
       const updated: StoredProfile = { ...existing, dietary_restrictions };
-      profiles.set(userId, updated);
+      profilesByUser.set(userId, updated);
+      persistProfile(userId, updated);
       return toProfileResponse(updated);
     },
   };
+}
+
+function mapProfileRecord(record: typeof profiles.$inferSelect): StoredProfile {
+  return {
+    gender: record.gender,
+    age: record.age,
+    height_cm: record.height_cm,
+    weight_kg: record.weight_kg,
+    goal: record.goal,
+    activity_level: record.activity_level,
+    dietary_restrictions: (record.dietary_restrictions as string[]) ?? [],
+    allergies: (record.allergies as string[]) ?? [],
+  };
+}
+
+function persistProfile(userId: string, profile: StoredProfile) {
+  const db = getDb();
+  if (!db || !isDatabaseEnabled()) {
+    return;
+  }
+
+  void (async () => {
+    await db.delete(profiles).where(eq(profiles.user_id, userId));
+    await db.insert(profiles).values({
+      user_id: userId,
+      gender: profile.gender,
+      age: profile.age,
+      height_cm: profile.height_cm,
+      weight_kg: profile.weight_kg,
+      goal: profile.goal,
+      activity_level: profile.activity_level,
+      dietary_restrictions: profile.dietary_restrictions,
+      allergies: profile.allergies,
+    });
+  })();
 }

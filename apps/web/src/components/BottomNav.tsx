@@ -1,35 +1,28 @@
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
+
+const NAV_ITEMS = [
+  { to: '/', label: '首页', icon: '🏠', end: true },
+  { to: '/plan', label: '计划', icon: '🎯' },
+  { to: '/recipe/today', label: '食谱', icon: '🥗' },
+  { to: '/food-analysis', label: '拍照', icon: '📷' },
+  { to: '/tracking', label: '记录', icon: '📈' },
+  { to: '/profile', label: '我的', icon: '👤' },
+];
 
 export function BottomNav() {
   return (
-    <nav
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        display: 'flex',
-        justifyContent: 'space-around',
-        padding: '1rem',
-        backgroundColor: '#fff',
-        borderTop: '1px solid #eee',
-      }}
-    >
-      <Link to="/" style={{ textDecoration: 'none', color: '#333' }}>
-        首页
-      </Link>
-      <Link to="/recipe/today" style={{ textDecoration: 'none', color: '#333' }}>
-        食谱
-      </Link>
-      <Link to="/food-analysis" style={{ textDecoration: 'none', color: '#333' }}>
-        拍照
-      </Link>
-      <Link to="/tracking" style={{ textDecoration: 'none', color: '#333' }}>
-        记录
-      </Link>
-      <Link to="/profile" style={{ textDecoration: 'none', color: '#333' }}>
-        我的
-      </Link>
+    <nav className="bottom-nav" aria-label="主导航">
+      {NAV_ITEMS.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
+          className={({ isActive }) => `bottom-nav-link${isActive ? ' active' : ''}`}
+        >
+          <span aria-hidden="true">{item.icon}</span>
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
     </nav>
   );
 }

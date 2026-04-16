@@ -15,8 +15,8 @@ export function createAdminUserRouter(
 ): Router {
   const router = Router();
 
-  router.get('/users', requireAdmin, (_req, res) => {
-    const users = authService.listUsers().map((user) => ({
+  router.get('/users', requireAdmin, async (_req, res) => {
+    const users = (await authService.listUsers()).map((user) => ({
       id: user.id,
       email: user.email,
       hasPlan: planService.listPlans(user.id).length > 0,
@@ -26,8 +26,8 @@ export function createAdminUserRouter(
     res.json({ users, total: users.length });
   });
 
-  router.get('/users/:id', requireAdmin, (req, res) => {
-    const user = authService.listUsers().find((item) => item.id === req.params.id);
+  router.get('/users/:id', requireAdmin, async (req, res) => {
+    const user = (await authService.listUsers()).find((item) => item.id === req.params.id);
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
@@ -43,8 +43,8 @@ export function createAdminUserRouter(
     });
   });
 
-  router.get('/dashboard', requireAdmin, (_req, res) => {
-    const users = authService.listUsers();
+  router.get('/dashboard', requireAdmin, async (_req, res) => {
+    const users = await authService.listUsers();
     const activeToday = users.filter(
       (user) => trackingService.getTodayCheckins(user.id).length > 0,
     ).length;

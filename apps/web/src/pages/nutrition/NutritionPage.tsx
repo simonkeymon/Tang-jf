@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Card, PageContainer } from '@tang/shared';
 
 import { api } from '../../lib/api';
 
@@ -29,8 +30,8 @@ export default function NutritionPage() {
 
   async function loadNutrition() {
     try {
-      const res = await api.get('/recipe/today');
-      setPlan(res.data.recipePlan);
+      const response = await api.get('/recipe/today');
+      setPlan(response.data.recipePlan);
       setMessage('');
     } catch {
       setPlan(null);
@@ -70,60 +71,84 @@ export default function NutritionPage() {
         : '当前营养分布比较均衡，继续保持。';
 
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: 16, paddingBottom: 96 }}>
-      <h1>营养分析</h1>
-      {message ? <p>{message}</p> : null}
+    <PageContainer>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">营养分析</h1>
+          <p className="page-subtitle">按今日食谱汇总总热量、宏量营养占比与每餐结构。</p>
+        </div>
+      </div>
+
+      {message ? <div className="banner banner-success">{message}</div> : null}
 
       {!plan ? null : (
         <>
-          <section style={{ marginBottom: 24 }}>
-            <h2>每日总量</h2>
-            <p>热量：{totals.calories} kcal</p>
-            <p>蛋白质：{totals.protein} g</p>
-            <p>碳水：{totals.carbohydrate} g</p>
-            <p>脂肪：{totals.fat} g</p>
-            <p>纤维：{totals.fiber} g</p>
+          <div className="stats-grid">
+            <Metric label="热量" value={`${totals.calories} kcal`} />
+            <Metric label="蛋白质" value={`${totals.protein} g`} />
+            <Metric label="碳水" value={`${totals.carbohydrate} g`} />
+            <Metric label="脂肪" value={`${totals.fat} g`} />
+          </div>
+
+          <section style={{ marginTop: 24 }} className="content-grid">
+            <Card className="surface-card">
+              <h2>宏量营养占比</h2>
+              <div
+                style={{
+                  display: 'flex',
+                  height: 24,
+                  width: '100%',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ width: `${percentage.protein}%`, background: '#22c55e' }} />
+                <div style={{ width: `${percentage.carbohydrate}%`, background: '#3b82f6' }} />
+                <div style={{ width: `${percentage.fat}%`, background: '#f59e0b' }} />
+              </div>
+              <p className="muted">
+                蛋白质 {percentage.protein}% / 碳水 {percentage.carbohydrate}% / 脂肪{' '}
+                {percentage.fat}%
+              </p>
+            </Card>
+
+            <Card className="surface-card">
+              <h2>建议</h2>
+              <p className="muted" style={{ marginBottom: 0 }}>
+                {recommendation}
+              </p>
+            </Card>
           </section>
 
-          <section style={{ marginBottom: 24 }}>
-            <h2>宏量营养占比</h2>
-            <div
-              style={{
-                display: 'flex',
-                height: 24,
-                width: '100%',
-                borderRadius: 8,
-                overflow: 'hidden',
-              }}
-            >
-              <div style={{ width: `${percentage.protein}%`, background: '#22c55e' }} />
-              <div style={{ width: `${percentage.carbohydrate}%`, background: '#3b82f6' }} />
-              <div style={{ width: `${percentage.fat}%`, background: '#f59e0b' }} />
-            </div>
-            <p>
-              蛋白质 {percentage.protein}% / 碳水 {percentage.carbohydrate}% / 脂肪 {percentage.fat}
-              %
-            </p>
-          </section>
-
-          <section style={{ marginBottom: 24 }}>
+          <Card className="surface-card" style={{ marginTop: 24 }}>
             <h2>按餐次营养分布</h2>
-            <ul>
+            <ul className="list-reset">
               {plan.meals.map((meal) => (
-                <li key={meal.id}>
-                  {meal.meal_type} · {meal.title}：蛋白质 {meal.nutrition.protein}g / 碳水{' '}
-                  {meal.nutrition.carbohydrate}g / 脂肪 {meal.nutrition.fat}g
+                <li key={meal.id} className="table-like-row">
+                  <span>
+                    {meal.meal_type} · {meal.title}
+                  </span>
+                  <strong>
+                    P {meal.nutrition.protein} / C {meal.nutrition.carbohydrate} / F{' '}
+                    {meal.nutrition.fat}
+                  </strong>
                 </li>
               ))}
             </ul>
-          </section>
-
-          <section>
-            <h2>建议</h2>
-            <p>{recommendation}</p>
-          </section>
+          </Card>
         </>
       )}
-    </main>
+    </PageContainer>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="surface-card">
+      <p className="metric-label">{label}</p>
+      <p className="metric-value" style={{ fontSize: '1.25rem' }}>
+        {value}
+      </p>
+    </div>
   );
 }
