@@ -1,10 +1,11 @@
 :root {
   color-scheme: light;
-  --font-family-sans: 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-family-display: 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial,
-    sans-serif;
-  --font-family-mono: 'SFMono-Regular', 'SF Mono', ui-monospace, Menlo, Monaco, Consolas,
-    'Liberation Mono', monospace;
+  --font-family-sans:
+    'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-family-display:
+    'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-family-mono:
+    'SFMono-Regular', 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 
   --color-bg: #ffffff;
   --color-bg-alt: #f5f5f7;
@@ -235,7 +236,9 @@ textarea:disabled {
   background-position:
     calc(100% - 18px) 19px,
     calc(100% - 12px) 19px;
-  background-size: 6px 6px, 6px 6px;
+  background-size:
+    6px 6px,
+    6px 6px;
   background-repeat: no-repeat;
   padding-right: 36px;
 }
@@ -515,13 +518,16 @@ textarea:disabled {
   display: grid;
   place-items: center;
   padding: var(--space-6);
+  overflow-y: auto;
   background: rgba(0, 0, 0, 0.72);
   backdrop-filter: saturate(180%) blur(20px);
 }
 
 .modal-surface {
   width: min(100%, 640px);
+  max-height: calc(100dvh - var(--space-8));
   padding: var(--space-7);
+  overflow-y: auto;
   border-radius: var(--radius-lg);
   background: #ffffff;
   box-shadow: var(--shadow-card);

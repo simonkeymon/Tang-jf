@@ -553,6 +553,36 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.recipe-meal-actions > a,
+.recipe-meal-actions > button {
+  min-width: 0;
+}
+
+.recipe-meal-actions > a .ui-button,
+.recipe-meal-actions > button.ui-button,
+.meal-photo-modal-actions > .ui-button {
+  width: 100%;
+}
+
+.meal-photo-modal {
+  scrollbar-gutter: stable;
+}
+
+.meal-photo-modal-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.meal-photo-modal-panel {
+  min-width: 0;
+}
+
+.meal-photo-modal-image {
+  display: block;
+  max-height: 320px;
+}
+
 @media (max-width: 1080px) {
   .topbar {
     grid-template-columns: minmax(0, 1fr);
@@ -605,5 +635,49 @@
 
   .section-card-grid {
     grid-template-columns: 1fr;
+  }
+
+  .recipe-meal-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .recipe-meal-actions > a,
+  .recipe-meal-actions > button,
+  .meal-photo-modal-actions > .ui-button,
+  .meal-photo-modal-close {
+    width: 100%;
+  }
+
+  .meal-photo-modal-overlay {
+    padding: 8px;
+    place-items: stretch;
+  }
+
+  .meal-photo-modal {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    min-height: calc(100dvh - 16px);
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .meal-photo-modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: -4px -4px 12px;
+    padding: 4px 4px 12px;
+    background: #ffffff;
+  }
+
+  .meal-photo-modal-grid,
+  .meal-photo-modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .meal-photo-modal-image {
+    max-height: 220px;
   }
 }

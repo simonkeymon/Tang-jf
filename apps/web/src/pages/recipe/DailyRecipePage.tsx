@@ -5,8 +5,7 @@ import { Button, Card, PageContainer } from '@tang/shared';
 import { api } from '../../lib/api';
 import { triggerRecipeGeneration, useGenerationStore } from '../../stores/generation-store';
 import { getErrorMessage } from '../../utils/error-handler';
-
-type MealType = '早餐' | '午餐' | '晚餐' | '加餐';
+import { CheckinEntry, MealPhotoCaptureModal, MealType } from './MealPhotoCaptureModal';
 
 type RecipeGenerationMeta = {
   mode: 'ai' | 'mock' | 'fallback';
@@ -26,14 +25,6 @@ type RecipeItem = {
   generation_meta?: RecipeGenerationMeta;
 };
 
-type CheckinEntry = {
-  date: string;
-  meal_type: MealType;
-  status: 'completed' | 'skipped' | 'partial';
-  calories?: number;
-  note?: string;
-};
-
 type RecipePlan = {
   meals: RecipeItem[];
   total_calories: number;
@@ -50,6 +41,7 @@ export default function DailyRecipePage() {
   const [error, setError] = useState('');
   const [workingMealId, setWorkingMealId] = useState<string | null>(null);
   const [todayCheckins, setTodayCheckins] = useState<CheckinEntry[]>([]);
+  const [photoMeal, setPhotoMeal] = useState<Pick<RecipeItem, 'meal_type' | 'title'> | null>(null);
 
   const generatingToday = recipeGeneration.pending && recipeGeneration.date === today;
 
@@ -292,7 +284,6 @@ export default function DailyRecipePage() {
               {meals.map((meal) => {
                 const mealCheckin = getMealCheckin(todayCheckins, meal.meal_type);
                 const completed = mealCheckin?.status === 'completed';
-                const mealPhotoLink = buildMealPhotoLink(meal.meal_type, today);
 
                 return (
                   <Card
@@ -358,17 +349,22 @@ export default function DailyRecipePage() {
                       </div>
                     ) : null}
 
-                    <div className="button-row">
+                    <div className="button-row recipe-meal-actions">
                       <Link to={`/recipe/${meal.id}`}>
                         <Button type="button" variant="secondary">
                           查看详情
                         </Button>
                       </Link>
-                      <Link to={mealPhotoLink}>
-                        <Button type="button" variant="ghost">
-                          {completed ? 'AI重新识别热量' : 'AI拍照识别热量'}
-                        </Button>
-                      </Link>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() =>
+                          setPhotoMeal({ meal_type: meal.meal_type, title: meal.title })
+                        }
+                        disabled={workingMealId !== null}
+                      >
+                        {completed ? 'AI重新识别热量' : 'AI拍照识别热量'}
+                      </Button>
                       <Button
                         type="button"
                         variant={completed ? 'secondary' : 'ghost'}
@@ -405,6 +401,20 @@ export default function DailyRecipePage() {
           ))}
         </div>
       )}
+
+      {photoMeal ? (
+        <MealPhotoCaptureModal
+          date={today}
+          mealType={photoMeal.meal_type}
+          title={photoMeal.title}
+          onClose={() => setPhotoMeal(null)}
+          onRecorded={(checkin, nextMessage) => {
+            upsertTodayCheckin(checkin);
+            setError('');
+            setMessage(nextMessage);
+          }}
+        />
+      ) : null}
     </PageContainer>
   );
 }
@@ -452,14 +462,4 @@ function formatCheckinStatus(status: CheckinEntry['status']) {
   if (status === 'completed') return '已打卡';
   if (status === 'partial') return '部分完成';
   return '已跳过';
-}
-
-function buildMealPhotoLink(mealType: MealType, date: string) {
-  const params = new URLSearchParams({
-    meal_type: mealType,
-    date,
-    return_to: '/recipe/today',
-    source: 'recipe',
-  });
-  return `/food-analysis?${params.toString()}`;
 }
