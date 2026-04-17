@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { Button, Card, PageContainer, useTranslation } from '@tang/shared';
 
 import { api } from '../../lib/api';
+import {
+  triggerPlanGeneration,
+  triggerRecipeGeneration,
+  useGenerationStore,
+} from '../../stores/generation-store';
 import { getErrorMessage } from '../../utils/error-handler';
 
 interface Plan {
@@ -21,15 +26,44 @@ interface Plan {
 
 export default function PlanPage() {
   const { t } = useTranslation();
+  const today = new Date().toISOString().slice(0, 10);
+  const { plan: planGeneration, recipe: recipeGeneration } = useGenerationStore();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [working, setWorking] = useState<'plan' | 'recipe' | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+
+  const isPlanGenerating = planGeneration.pending;
+  const isRecipeGenerating = recipeGeneration.pending && recipeGeneration.date === today;
 
   useEffect(() => {
     void fetchPlan();
   }, []);
+
+  useEffect(() => {
+    if (planGeneration.lastCompletedAt) {
+      void fetchPlan();
+      setMessage('专属饮食计划已生成。');
+    }
+  }, [planGeneration.lastCompletedAt]);
+
+  useEffect(() => {
+    if (planGeneration.lastError) {
+      setError(planGeneration.lastError);
+    }
+  }, [planGeneration.lastError]);
+
+  useEffect(() => {
+    if (recipeGeneration.lastCompletedAt) {
+      setMessage('今日食谱已生成，去看看今天吃什么吧。');
+    }
+  }, [recipeGeneration.lastCompletedAt]);
+
+  useEffect(() => {
+    if (recipeGeneration.lastError) {
+      setError(recipeGeneration.lastError);
+    }
+  }, [recipeGeneration.lastError]);
 
   async function fetchPlan() {
     try {
@@ -57,31 +91,32 @@ export default function PlanPage() {
   }
 
   async function handleGeneratePlan() {
+    setError('');
+    setMessage('饮食计划正在生成中，你可以先查看其他内容，完成后会自动同步。');
+
     try {
-      setWorking('plan');
-      setError('');
-      const response = await api.post('/plan/generate');
-      setPlan(response.data.plan);
+      await triggerPlanGeneration();
+      await fetchPlan();
       setMessage('专属饮食计划已生成。');
     } catch (requestError) {
       setError(getErrorMessage(requestError));
-    } finally {
-      setWorking(null);
     }
   }
 
   async function handleGenerateRecipe() {
+    if (!plan) {
+      setError('请先生成饮食计划，再生成今日食谱。');
+      return;
+    }
+
+    setError('');
+    setMessage('今日食谱正在生成中，你可以先查看其他内容，完成后会自动同步。');
+
     try {
-      setWorking('recipe');
-      setError('');
-      await api.post('/recipe/generate-daily', {
-        date: new Date().toISOString().slice(0, 10),
-      });
+      await triggerRecipeGeneration(today);
       setMessage('今日食谱已生成，去看看今天吃什么吧。');
     } catch (requestError) {
       setError(getErrorMessage(requestError));
-    } finally {
-      setWorking(null);
     }
   }
 
@@ -104,8 +139,8 @@ export default function PlanPage() {
             </Button>
           </Link>
           {plan ? (
-            <Button type="button" onClick={handleGenerateRecipe} disabled={working !== null}>
-              {working === 'recipe' ? '生成中...' : '生成今日食谱'}
+            <Button type="button" onClick={handleGenerateRecipe} disabled={isRecipeGenerating}>
+              {isRecipeGenerating ? '食谱生成中...' : '生成今日食谱'}
             </Button>
           ) : null}
         </div>
@@ -118,16 +153,20 @@ export default function PlanPage() {
         <Card className="surface-card surface-subtle">
           <div className="empty-state">
             <span className="eyebrow">计划尚未开始</span>
-            <h2>你还没有饮食计划</h2>
-            <p className="muted">先在个人资料里完善身体数据，再让 AI 为你生成专属计划。</p>
+            <h2>{isPlanGenerating ? '饮食计划正在生成中' : '你还没有饮食计划'}</h2>
+            <p className="muted">
+              {isPlanGenerating
+                ? '你可以先切换去其他页面，计划完成后会自动同步到这里。'
+                : '先在个人资料里完善身体数据，再让 AI 为你生成专属计划。'}
+            </p>
             <div className="button-row" style={{ justifyContent: 'center' }}>
               <Link to="/profile">
                 <Button type="button" variant="secondary">
                   先完善资料
                 </Button>
               </Link>
-              <Button type="button" onClick={handleGeneratePlan} disabled={working !== null}>
-                {working === 'plan' ? '生成中...' : '创建饮食计划'}
+              <Button type="button" onClick={handleGeneratePlan} disabled={isPlanGenerating}>
+                {isPlanGenerating ? '生成中...' : '创建饮食计划'}
               </Button>
             </div>
           </div>
@@ -147,6 +186,7 @@ export default function PlanPage() {
                     <span className="pill">周期 {plan.duration_days} 天</span>
                     <span className="pill">目标 {translateGoal(plan.goal)}</span>
                     <span className="pill">{plan.daily_calorie_target} kcal / 天</span>
+                    {isRecipeGenerating ? <span className="pill">食谱生成中</span> : null}
                   </div>
                 </div>
 
@@ -194,8 +234,8 @@ export default function PlanPage() {
               </div>
               <div className="subsection-divider" />
               <div className="button-row">
-                <Button type="button" onClick={handleGenerateRecipe} disabled={working !== null}>
-                  {working === 'recipe' ? '生成中...' : '生成今日食谱'}
+                <Button type="button" onClick={handleGenerateRecipe} disabled={isRecipeGenerating}>
+                  {isRecipeGenerating ? '生成中...' : '生成今日食谱'}
                 </Button>
                 <Link to="/profile">
                   <Button type="button" variant="secondary">

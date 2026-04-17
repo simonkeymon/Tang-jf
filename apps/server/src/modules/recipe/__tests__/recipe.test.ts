@@ -83,6 +83,21 @@ describe('Recipe endpoints', () => {
     expect(res.status).toBe(401);
   });
 
+  it('requires an active plan before generating recipes', async () => {
+    const app = createTestApp();
+    const token = await registerAndGetToken(app, 'recipe-needs-plan@example.com');
+
+    await createProfile(app, token);
+
+    const res = await request(app)
+      .post('/api/recipe/generate-daily')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date: '2026-04-12' });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ message: '请先生成饮食计划，再生成今日食谱' });
+  });
+
   it('avoids allergic ingredients in generated recipes', async () => {
     const app = createTestApp();
     const token = await registerAndGetToken(app, 'recipe-allergy@example.com');

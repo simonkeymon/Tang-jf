@@ -688,7 +688,7 @@ export function createRecipeService(
       const plan = planService.getCurrentPlan(userId);
       const profile = userService.getProfile(userId);
       if (!plan) {
-        throw new RecipeError(404, 'Active plan not found');
+        throw new RecipeError(409, '请先生成饮食计划，再生成今日食谱');
       }
 
       const existingPlan = findDailyRecipe(dailyRecipes, userId, date);
@@ -709,7 +709,11 @@ export function createRecipeService(
         compileFoodPreferences(profile),
         excludedTitlesByMeal,
       );
-      const generationMeta = createGenerationMeta(aiResponse, parsedPlan.usedFallback);
+      const generationMeta = createGenerationMeta(aiResponse, {
+        usedFallback: parsedPlan.usedFallback,
+        acceptedCount: parsedPlan.acceptedCount,
+        totalCount: parsedPlan.totalCount,
+      });
       const recipePlan = attachPlanGenerationMeta(parsedPlan.plan, generationMeta);
       const existing = dailyRecipes.get(userId) ?? [];
       const withoutSameDate = existing.filter((entry) => entry.date !== date);
@@ -752,7 +756,7 @@ export function createRecipeService(
 
       const plan = planService.getCurrentPlan(userId);
       if (!plan) {
-        throw new RecipeError(404, 'Active plan not found');
+        throw new RecipeError(409, '请先生成饮食计划，再根据食材生成食谱');
       }
 
       const normalizedIngredients = ingredients
@@ -853,7 +857,11 @@ export function createRecipeService(
         );
         const replacement = attachMealGenerationMeta(
           parsedSwap.recipe,
-          createGenerationMeta(aiResponse, parsedSwap.usedFallback),
+          createGenerationMeta(aiResponse, {
+            usedFallback: parsedSwap.usedFallback,
+            acceptedCount: parsedSwap.usedFallback ? 0 : 1,
+            totalCount: 1,
+          }),
         );
 
         replacement.date = dailyPlan.date;
@@ -1055,10 +1063,10 @@ function parseDailyRecipePlan(
   fallbackPlan: DailyRecipePlan,
   preferences: CompiledFoodPreferences,
   excludedTitlesByMeal: ExcludedTitlesByMeal,
-): { plan: DailyRecipePlan; usedFallback: boolean } {
+): { plan: DailyRecipePlan; usedFallback: boolean; acceptedCount: number; totalCount: number } {
   const parsed = parseJsonResponse(content);
   if (!parsed || !Array.isArray(parsed.meals)) {
-    return { plan: fallbackPlan, usedFallback: true };
+    return { plan: fallbackPlan, usedFallback: true, acceptedCount: 0, totalCount: 4 };
   }
 
   const candidateByMeal = new Map<MealType, unknown>();
@@ -1070,6 +1078,7 @@ function parseDailyRecipePlan(
   }
 
   let usedFallback = false;
+  let acceptedCount = 0;
   const meals = fallbackPlan.meals.map((fallbackMeal) => {
     const meal = sanitizeCandidateMeal(
       candidateByMeal.get(fallbackMeal.meal_type),
@@ -1079,6 +1088,8 @@ function parseDailyRecipePlan(
     );
     if (meal === fallbackMeal) {
       usedFallback = true;
+    } else {
+      acceptedCount += 1;
     }
 
     return meal;
@@ -1091,6 +1102,8 @@ function parseDailyRecipePlan(
       total_calories: meals.reduce((sum, meal) => sum + meal.nutrition.calories, 0),
     },
     usedFallback,
+    acceptedCount,
+    totalCount: fallbackPlan.meals.length,
   };
 }
 
@@ -1166,18 +1179,27 @@ function serializeMealForAI(meal: DailyRecipeItem) {
 
 function createGenerationMeta(
   response: { provider: 'openai-compatible' | 'mock'; model: string },
-  usedFallback: boolean,
+  stats: { usedFallback: boolean; acceptedCount?: number; totalCount?: number },
 ): RecipeGenerationMeta {
+  const acceptedCount = stats.acceptedCount ?? (stats.usedFallback ? 0 : 1);
+  const totalCount = stats.totalCount ?? 1;
+  const hasAcceptedAiContent = acceptedCount > 0;
+
   return {
-    mode: usedFallback
-      ? 'fallback'
-      : response.provider === 'openai-compatible'
+    mode: hasAcceptedAiContent
+      ? response.provider === 'openai-compatible'
         ? 'ai'
-        : 'mock',
+        : 'mock'
+      : 'fallback',
     provider: response.provider,
     model: response.model,
     generated_at: new Date().toISOString(),
-    reason: usedFallback ? 'ai-response-invalid-or-filtered' : undefined,
+    reason:
+      stats.usedFallback && acceptedCount < totalCount
+        ? acceptedCount > 0
+          ? 'ai-response-partially-filtered'
+          : 'ai-response-invalid-or-filtered'
+        : undefined,
   };
 }
 
@@ -1386,8 +1408,66 @@ function parseJsonResponse(content: string): Record<string, unknown> | null {
     const parsed = JSON.parse(cleaned);
     return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
   } catch {
+    const extracted = extractFirstJsonObject(cleaned);
+    if (!extracted) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(extracted);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function extractFirstJsonObject(content: string): string | null {
+  const startIndex = content.search(/[{[]/);
+  if (startIndex === -1) {
     return null;
   }
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex; index < content.length; index += 1) {
+    const char = content[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '{' || char === '[') {
+      depth += 1;
+    } else if (char === '}' || char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return content.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return null;
 }
 
 function parseIngredients(value: unknown): RecipeIngredient[] | null {

@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { Button, Card, PageContainer } from '@tang/shared';
 
 import { api } from '../../lib/api';
+import {
+  triggerRecipeGeneration,
+  useGenerationStore,
+} from '../../stores/generation-store';
 import { getErrorMessage } from '../../utils/error-handler';
 
 type RecipeGenerationMeta = {
@@ -31,15 +35,58 @@ type RecipePlan = {
 };
 
 export default function DailyRecipePage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const { recipe: recipeGeneration } = useGenerationStore();
   const [recipePlan, setRecipePlan] = useState<RecipePlan | null>(null);
+  const [hasPlan, setHasPlan] = useState<boolean | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [workingMealId, setWorkingMealId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
+
+  const generatingToday = recipeGeneration.pending && recipeGeneration.date === today;
 
   useEffect(() => {
-    void loadTodayRecipe();
+    void loadRecipePageData();
   }, []);
+
+  useEffect(() => {
+    if (recipeGeneration.lastCompletedAt) {
+      void loadTodayRecipe();
+      setMessage('今日食谱已生成。');
+    }
+  }, [recipeGeneration.lastCompletedAt]);
+
+  useEffect(() => {
+    if (recipeGeneration.lastError) {
+      setError(recipeGeneration.lastError);
+    }
+  }, [recipeGeneration.lastError]);
+
+  async function loadRecipePageData() {
+    await Promise.all([loadPlanState(), loadTodayRecipe()]);
+  }
+
+  async function loadPlanState() {
+    try {
+      await api.get('/plan/current');
+      setHasPlan(true);
+    } catch (requestError) {
+      if (
+        typeof requestError === 'object' &&
+        requestError !== null &&
+        'response' in requestError &&
+        requestError.response &&
+        typeof requestError.response === 'object' &&
+        'status' in requestError.response &&
+        requestError.response.status === 404
+      ) {
+        setHasPlan(false);
+        return;
+      }
+
+      setHasPlan(null);
+    }
+  }
 
   async function loadTodayRecipe() {
     try {
@@ -48,24 +95,27 @@ export default function DailyRecipePage() {
       setMessage('');
     } catch {
       setRecipePlan(null);
-      setMessage('今日还没有食谱，请先生成。');
+      if (!generatingToday) {
+        setMessage('今日还没有食谱，请先生成。');
+      }
     }
   }
 
   async function handleGenerate() {
-    setGenerating(true);
+    if (hasPlan === false) {
+      setError('请先生成饮食计划，再生成今日食谱。');
+      return;
+    }
+
     setError('');
+    setMessage('今日食谱正在生成中，你可以先查看其他数据，完成后会自动显示。');
 
     try {
-      const response = await api.post('/recipe/generate-daily', {
-        date: new Date().toISOString().slice(0, 10),
-      });
-      setRecipePlan(response.data.recipePlan);
+      await triggerRecipeGeneration(today);
+      await loadTodayRecipe();
       setMessage('今日食谱已生成。');
     } catch (requestError) {
       setError(getErrorMessage(requestError));
-    } finally {
-      setGenerating(false);
     }
   }
 
@@ -100,7 +150,6 @@ export default function DailyRecipePage() {
     setWorkingMealId(mealType);
     setError('');
     try {
-      const today = new Date().toISOString().slice(0, 10);
       await api.post('/tracking/checkin', {
         date: today,
         meal_type: mealType,
@@ -124,14 +173,18 @@ export default function DailyRecipePage() {
     return [...groups.entries()];
   }, [recipePlan]);
 
+  const generationHint = hasPlan === false
+    ? '请先生成饮食计划，再回来安排今天的三餐。'
+    : generatingToday
+      ? '今日食谱正在生成中，你可以先查看其他页面，完成后会自动显示。'
+      : '三餐与加餐已经和你的计划目标打通，可以收藏、换一份和直接打卡。';
+
   return (
     <PageContainer>
       <div className="page-header">
         <div>
           <h1 className="page-title">今日食谱</h1>
-          <p className="page-subtitle">
-            三餐与加餐已经和你的计划目标打通，可以收藏、换一份和直接打卡。
-          </p>
+          <p className="page-subtitle">{generationHint}</p>
         </div>
         <div className="button-row">
           <Link to="/plan">
@@ -139,8 +192,8 @@ export default function DailyRecipePage() {
               回到计划
             </Button>
           </Link>
-          <Button type="button" onClick={handleGenerate} disabled={generating}>
-            {generating ? '生成中...' : recipePlan ? '重新生成' : '生成今日食谱'}
+          <Button type="button" onClick={handleGenerate} disabled={generatingToday || hasPlan === false}>
+            {generatingToday ? '生成中...' : recipePlan ? '重新生成' : '生成今日食谱'}
           </Button>
         </div>
       </div>
@@ -167,10 +220,11 @@ export default function DailyRecipePage() {
                 <span className="muted">模型</span>
                 <strong>{recipePlan.generation_meta.model}</strong>
               </div>
-              <p className="muted" style={{ marginBottom: 0 }}>
-                最小验证：先去个人资料把禁忌改成明显食材（如鱼/牛肉），再点“重新生成”。
-                如果这里显示“真实 AI 生成”，且菜名与食材同步变化，就说明这次结果来自真实 AI。
-              </p>
+              {recipePlan.generation_meta.reason ? (
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  当前结果里有一部分使用了系统备用方案，以保证结构完整和禁忌过滤生效。
+                </p>
+              ) : null}
             </div>
           ) : null}
         </Card>
@@ -179,8 +233,21 @@ export default function DailyRecipePage() {
       {!recipePlan ? (
         <Card className="surface-card" style={{ marginTop: 24 }}>
           <div className="empty-state">
-            <p>今日还没有食谱。</p>
-            <p className="muted">建议先完成资料与计划，再点击上方按钮生成。</p>
+            <p>{hasPlan === false ? '还没有饮食计划。' : '今日还没有食谱。'}</p>
+            <p className="muted">
+              {hasPlan === false
+                ? '先生成饮食计划，系统才能根据你的目标安排今天的三餐。'
+                : generatingToday
+                  ? '食谱正在准备中，完成后返回此页会自动显示。'
+                  : '建议先完成资料与计划，再点击上方按钮生成。'}
+            </p>
+            {hasPlan === false ? (
+              <Link to="/plan">
+                <Button type="button" variant="secondary">
+                  先去生成饮食计划
+                </Button>
+              </Link>
+            ) : null}
           </div>
         </Card>
       ) : (
@@ -271,7 +338,7 @@ function formatGenerationMode(meta: RecipeGenerationMeta) {
 function formatGenerationBadge(meta: RecipeGenerationMeta) {
   if (meta.mode === 'ai') return 'AI';
   if (meta.mode === 'mock') return '系统';
-  return '兜底';
+  return '备用';
 }
 
 function getGenerationClassName(mode: RecipeGenerationMeta['mode']) {

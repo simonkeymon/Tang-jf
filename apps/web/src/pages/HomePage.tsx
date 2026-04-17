@@ -2,8 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card, PageContainer } from '@tang/shared';
 
-import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../lib/api';
+import {
+  triggerPlanGeneration,
+  triggerRecipeGeneration,
+  useGenerationStore,
+} from '../stores/generation-store';
 import { getErrorMessage } from '../utils/error-handler';
 
 type ProfileResponse = {
@@ -35,7 +40,9 @@ type WeightEntry = {
 };
 
 export default function HomePage() {
+  const today = new Date().toISOString().slice(0, 10);
   const { user } = useAuth();
+  const { plan: planGeneration, recipe: recipeGeneration } = useGenerationStore();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [recipePlan, setRecipePlan] = useState<RecipePlanResponse | null>(null);
@@ -43,27 +50,47 @@ export default function HomePage() {
   const [streak, setStreak] = useState(0);
   const [latestWeight, setLatestWeight] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [working, setWorking] = useState<'plan' | 'recipe' | 'summary' | null>(null);
+  const [working, setWorking] = useState<'summary' | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const isPlanGenerating = planGeneration.pending;
+  const isRecipeGenerating = recipeGeneration.pending && recipeGeneration.date === today;
 
   useEffect(() => {
     void loadDashboard();
   }, []);
 
+  useEffect(() => {
+    if (planGeneration.lastCompletedAt || recipeGeneration.lastCompletedAt) {
+      void loadDashboard();
+    }
+  }, [planGeneration.lastCompletedAt, recipeGeneration.lastCompletedAt]);
+
+  useEffect(() => {
+    if (planGeneration.lastError) {
+      setError(planGeneration.lastError);
+    }
+  }, [planGeneration.lastError]);
+
+  useEffect(() => {
+    if (recipeGeneration.lastError) {
+      setError(recipeGeneration.lastError);
+    }
+  }, [recipeGeneration.lastError]);
+
   const progressLabel = useMemo(() => {
     if (!profile) return '先完善资料';
-    if (!plan) return '创建饮食计划';
-    if (!recipePlan) return '生成今日食谱';
+    if (!plan) return isPlanGenerating ? '饮食计划生成中' : '创建饮食计划';
+    if (!recipePlan) return isRecipeGenerating ? '今日食谱生成中' : '生成今日食谱';
     if (!summary) return '生成今日总结';
     return '开始执行今日计划';
-  }, [profile, plan, recipePlan, summary]);
+  }, [profile, plan, recipePlan, summary, isPlanGenerating, isRecipeGenerating]);
 
   async function loadDashboard() {
     setLoading(true);
     setError('');
 
-    const today = new Date().toISOString().slice(0, 10);
     const from = getDateOffset(-6);
 
     const results = await Promise.allSettled([
@@ -94,36 +121,28 @@ export default function HomePage() {
   }
 
   async function handleGeneratePlan() {
-    setWorking('plan');
     setError('');
-    setMessage('');
+    setMessage('饮食计划正在生成中，你可以先浏览其他数据，完成后会自动同步。');
 
     try {
-      const response = await api.post('/plan/generate');
-      setPlan(response.data.plan);
+      await triggerPlanGeneration();
+      await loadDashboard();
       setMessage('饮食计划已生成，接下来可以创建今日食谱。');
     } catch (requestError) {
       setError(getErrorMessage(requestError));
-    } finally {
-      setWorking(null);
     }
   }
 
   async function handleGenerateRecipe() {
-    setWorking('recipe');
     setError('');
-    setMessage('');
+    setMessage('今日食谱正在生成中，你可以先浏览其他数据，完成后会自动同步。');
 
     try {
-      const response = await api.post('/recipe/generate-daily', {
-        date: new Date().toISOString().slice(0, 10),
-      });
-      setRecipePlan(response.data.recipePlan);
+      await triggerRecipeGeneration(today);
+      await loadDashboard();
       setMessage('今日食谱已经准备好了。');
     } catch (requestError) {
       setError(getErrorMessage(requestError));
-    } finally {
-      setWorking(null);
     }
   }
 
@@ -133,9 +152,7 @@ export default function HomePage() {
     setMessage('');
 
     try {
-      const response = await api.post('/summary/generate', {
-        date: new Date().toISOString().slice(0, 10),
-      });
+      const response = await api.post('/summary/generate', { date: today });
       setSummary(response.data.summary);
       setMessage('今日总结已生成。');
     } catch (requestError) {
@@ -150,12 +167,12 @@ export default function HomePage() {
       <Button type="button">先完善资料</Button>
     </Link>
   ) : !plan ? (
-    <Button type="button" onClick={handleGeneratePlan} disabled={working !== null}>
-      {working === 'plan' ? '生成中...' : '一键生成计划'}
+    <Button type="button" onClick={handleGeneratePlan} disabled={isPlanGenerating}>
+      {isPlanGenerating ? '计划生成中...' : '一键生成计划'}
     </Button>
   ) : !recipePlan ? (
-    <Button type="button" onClick={handleGenerateRecipe} disabled={working !== null}>
-      {working === 'recipe' ? '生成中...' : '生成今日食谱'}
+    <Button type="button" onClick={handleGenerateRecipe} disabled={isRecipeGenerating}>
+      {isRecipeGenerating ? '食谱生成中...' : '生成今日食谱'}
     </Button>
   ) : !summary ? (
     <Button type="button" onClick={handleGenerateSummary} disabled={working !== null}>
@@ -176,6 +193,8 @@ export default function HomePage() {
             <div className="pill-row">
               <span className="pill">欢迎回来 · {user?.email ?? 'Tang 用户'}</span>
               {profile ? <span className="pill">目标：{translateGoal(profile.goal)}</span> : null}
+              {isPlanGenerating ? <span className="pill">计划生成中</span> : null}
+              {isRecipeGenerating ? <span className="pill">食谱生成中</span> : null}
             </div>
             <h1 className="page-title">把“吃什么”变成每天都能执行的计划。</h1>
             <p className="hero-copy">
@@ -296,8 +315,10 @@ export default function HomePage() {
           </div>
           {!plan ? (
             <div className="empty-state">
-              <p>你还没有活跃计划。</p>
-              <p className="muted">补齐资料后即可一键生成。</p>
+              <p>{isPlanGenerating ? '饮食计划正在生成中。' : '你还没有活跃计划。'}</p>
+              <p className="muted">
+                {isPlanGenerating ? '你可以先浏览其他数据，完成后首页会自动同步。' : '补齐资料后即可一键生成。'}
+              </p>
             </div>
           ) : (
             <div className="detail-list">
@@ -320,8 +341,10 @@ export default function HomePage() {
           </div>
           {!recipePlan ? (
             <div className="empty-state">
-              <p>还没有今日食谱。</p>
-              <p className="muted">计划准备好后，可为今天自动安排三餐。</p>
+              <p>{isRecipeGenerating ? '今日食谱正在生成中。' : '还没有今日食谱。'}</p>
+              <p className="muted">
+                {isRecipeGenerating ? '你可以先查看其他页面，完成后返回这里会自动同步。' : '计划准备好后，可为今天自动安排三餐。'}
+              </p>
             </div>
           ) : (
             <div className="detail-list">
