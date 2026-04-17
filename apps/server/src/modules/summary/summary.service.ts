@@ -108,14 +108,20 @@ async function buildSummary(input: {
   profile: ProfileResponse | null;
   currentPlan: DietPlanRecord | null;
   recipePlan: DailyRecipePlan | null;
-  checkins: Array<{ status: 'completed' | 'skipped' | 'partial' }>;
+  checkins: Array<{ status: 'completed' | 'skipped' | 'partial'; calories?: number }>;
   weightEntry: WeightRecord | null;
   streak: number;
 }): Promise<DailySummary> {
   const totalMeals = input.recipePlan?.meals.length ?? 4;
   const completedMeals = input.checkins.filter((entry) => entry.status === 'completed').length;
   const mealCompletionRate = totalMeals > 0 ? Number((completedMeals / totalMeals).toFixed(2)) : 0;
-  const actualCalories = input.recipePlan?.total_calories ?? 0;
+  const recordedCalories = input.checkins.reduce(
+    (sum, entry) => sum + (typeof entry.calories === 'number' ? entry.calories : 0),
+    0,
+  );
+  const actualCalories = input.checkins.some((entry) => typeof entry.calories === 'number')
+    ? recordedCalories
+    : (input.recipePlan?.total_calories ?? 0);
   const targetCalories =
     input.currentPlan?.daily_calorie_target ?? input.profile?.daily_calorie_target ?? 0;
   const delta = actualCalories - targetCalories;

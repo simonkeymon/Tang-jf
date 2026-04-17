@@ -14,6 +14,8 @@ const checkinSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   meal_type: z.enum(['早餐', '午餐', '晚餐', '加餐']),
   status: z.enum(['completed', 'skipped', 'partial']),
+  calories: z.number().int().min(0).max(5000).optional(),
+  note: z.string().max(1000).optional(),
 });
 
 export function createTrackingRouter(

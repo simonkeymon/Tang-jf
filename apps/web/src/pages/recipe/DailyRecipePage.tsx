@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom';
 import { Button, Card, PageContainer } from '@tang/shared';
 
 import { api } from '../../lib/api';
-import {
-  triggerRecipeGeneration,
-  useGenerationStore,
-} from '../../stores/generation-store';
+import { triggerRecipeGeneration, useGenerationStore } from '../../stores/generation-store';
 import { getErrorMessage } from '../../utils/error-handler';
+
+type MealType = '早餐' | '午餐' | '晚餐' | '加餐';
 
 type RecipeGenerationMeta = {
   mode: 'ai' | 'mock' | 'fallback';
@@ -19,12 +18,20 @@ type RecipeGenerationMeta = {
 
 type RecipeItem = {
   id: string;
-  meal_type: string;
+  meal_type: MealType;
   title: string;
   cuisine_type: string;
   nutrition: { calories: number; protein?: number; carbohydrate?: number; fat?: number };
   cook_time_minutes: number;
   generation_meta?: RecipeGenerationMeta;
+};
+
+type CheckinEntry = {
+  date: string;
+  meal_type: MealType;
+  status: 'completed' | 'skipped' | 'partial';
+  calories?: number;
+  note?: string;
 };
 
 type RecipePlan = {
@@ -42,6 +49,7 @@ export default function DailyRecipePage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [workingMealId, setWorkingMealId] = useState<string | null>(null);
+  const [todayCheckins, setTodayCheckins] = useState<CheckinEntry[]>([]);
 
   const generatingToday = recipeGeneration.pending && recipeGeneration.date === today;
 
@@ -63,7 +71,7 @@ export default function DailyRecipePage() {
   }, [recipeGeneration.lastError]);
 
   async function loadRecipePageData() {
-    await Promise.all([loadPlanState(), loadTodayRecipe()]);
+    await Promise.all([loadPlanState(), loadTodayRecipe(), loadTodayCheckins()]);
   }
 
   async function loadPlanState() {
@@ -98,6 +106,15 @@ export default function DailyRecipePage() {
       if (!generatingToday) {
         setMessage('今日还没有食谱，请先生成。');
       }
+    }
+  }
+
+  async function loadTodayCheckins() {
+    try {
+      const response = await api.get('/tracking/checkin/today');
+      setTodayCheckins(response.data.entries ?? []);
+    } catch {
+      setTodayCheckins([]);
     }
   }
 
@@ -150,17 +167,29 @@ export default function DailyRecipePage() {
     setWorkingMealId(mealType);
     setError('');
     try {
-      await api.post('/tracking/checkin', {
+      const response = await api.post('/tracking/checkin', {
         date: today,
         meal_type: mealType,
         status: 'completed',
       });
+      upsertTodayCheckin(response.data.checkin);
       setMessage(`${mealType} 已打卡`);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
       setWorkingMealId(null);
     }
+  }
+
+  function upsertTodayCheckin(nextEntry: CheckinEntry) {
+    setTodayCheckins((current) => {
+      const next = current.filter(
+        (entry) => !(entry.date === nextEntry.date && entry.meal_type === nextEntry.meal_type),
+      );
+      next.push(nextEntry);
+      next.sort((left, right) => left.meal_type.localeCompare(right.meal_type));
+      return next;
+    });
   }
 
   const groupedMeals = useMemo(() => {
@@ -173,11 +202,12 @@ export default function DailyRecipePage() {
     return [...groups.entries()];
   }, [recipePlan]);
 
-  const generationHint = hasPlan === false
-    ? '请先生成饮食计划，再回来安排今天的三餐。'
-    : generatingToday
-      ? '今日食谱正在生成中，你可以先查看其他页面，完成后会自动显示。'
-      : '三餐与加餐已经和你的计划目标打通，可以收藏、换一份和直接打卡。';
+  const generationHint =
+    hasPlan === false
+      ? '请先生成饮食计划，再回来安排今天的三餐。'
+      : generatingToday
+        ? '今日食谱正在生成中，你可以先查看其他页面，完成后会自动显示。'
+        : '三餐与加餐已经和你的计划目标打通，可以直接打卡，也能用 AI 拍照记录你实际吃了什么和热量。';
 
   return (
     <PageContainer>
@@ -192,7 +222,11 @@ export default function DailyRecipePage() {
               回到计划
             </Button>
           </Link>
-          <Button type="button" onClick={handleGenerate} disabled={generatingToday || hasPlan === false}>
+          <Button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generatingToday || hasPlan === false}
+          >
             {generatingToday ? '生成中...' : recipePlan ? '重新生成' : '生成今日食谱'}
           </Button>
         </div>
@@ -255,61 +289,118 @@ export default function DailyRecipePage() {
           {groupedMeals.map(([mealType, meals]) => (
             <section key={mealType} className="stack">
               <h2 style={{ marginBottom: 0 }}>{mealType}</h2>
-              {meals.map((meal) => (
-                <Card key={meal.id} className="surface-card">
-                  <div className="page-header" style={{ marginBottom: 16 }}>
-                    <div>
-                      <h3 style={{ margin: 0 }}>{meal.title}</h3>
-                      <p className="page-subtitle" style={{ marginTop: 8 }}>
-                        {meal.cuisine_type} · {meal.nutrition.calories} kcal · 约{' '}
-                        {meal.cook_time_minutes} 分钟
-                      </p>
-                    </div>
-                    <div className="pill-row">
-                      <span className="pill">{meal.meal_type}</span>
-                      {meal.generation_meta ? (
-                        <span
-                          className={`pill ${getGenerationClassName(meal.generation_meta.mode)}`}
-                        >
-                          {formatGenerationBadge(meal.generation_meta)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
+              {meals.map((meal) => {
+                const mealCheckin = getMealCheckin(todayCheckins, meal.meal_type);
+                const completed = mealCheckin?.status === 'completed';
+                const mealPhotoLink = buildMealPhotoLink(meal.meal_type, today);
 
-                  <div className="button-row">
-                    <Link to={`/recipe/${meal.id}`}>
-                      <Button type="button" variant="secondary">
-                        查看详情
+                return (
+                  <Card
+                    key={meal.id}
+                    className="surface-card"
+                    style={
+                      completed
+                        ? {
+                            background: 'rgba(45, 143, 67, 0.06)',
+                            border: '1px solid rgba(45, 143, 67, 0.18)',
+                          }
+                        : undefined
+                    }
+                  >
+                    <div className="page-header" style={{ marginBottom: 16 }}>
+                      <div>
+                        <h3 style={{ margin: 0 }}>{meal.title}</h3>
+                        <p className="page-subtitle" style={{ marginTop: 8 }}>
+                          {meal.cuisine_type} · {meal.nutrition.calories} kcal · 约{' '}
+                          {meal.cook_time_minutes} 分钟
+                        </p>
+                      </div>
+                      <div className="pill-row">
+                        <span className="pill">{meal.meal_type}</span>
+                        {mealCheckin ? (
+                          <span className={`pill ${getCheckinClassName(mealCheckin.status)}`}>
+                            {formatCheckinStatus(mealCheckin.status)}
+                          </span>
+                        ) : null}
+                        {typeof mealCheckin?.calories === 'number' ? (
+                          <span className="pill status-ok">{mealCheckin.calories} kcal</span>
+                        ) : null}
+                        {meal.generation_meta ? (
+                          <span
+                            className={`pill ${getGenerationClassName(meal.generation_meta.mode)}`}
+                          >
+                            {formatGenerationBadge(meal.generation_meta)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {mealCheckin ? (
+                      <div
+                        className="stack"
+                        style={{
+                          marginBottom: 16,
+                          padding: 16,
+                          borderRadius: 12,
+                          background: 'rgba(255, 255, 255, 0.78)',
+                        }}
+                      >
+                        <strong style={{ color: 'var(--color-heading)' }}>
+                          {typeof mealCheckin.calories === 'number'
+                            ? '这餐已经通过记录保存了识别热量'
+                            : '这餐今天已经打过卡'}
+                        </strong>
+                        <p className="muted" style={{ margin: 0 }}>
+                          {mealCheckin.note
+                            ? `记录内容：${mealCheckin.note}`
+                            : '如果实际吃的和推荐食谱不同，可以继续用 AI 拍照识别并更新本餐记录。'}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    <div className="button-row">
+                      <Link to={`/recipe/${meal.id}`}>
+                        <Button type="button" variant="secondary">
+                          查看详情
+                        </Button>
+                      </Link>
+                      <Link to={mealPhotoLink}>
+                        <Button type="button" variant="ghost">
+                          {completed ? 'AI重新识别热量' : 'AI拍照识别热量'}
+                        </Button>
+                      </Link>
+                      <Button
+                        type="button"
+                        variant={completed ? 'secondary' : 'ghost'}
+                        onClick={() => handleCheckin(meal.meal_type)}
+                        disabled={workingMealId !== null || completed}
+                      >
+                        {completed
+                          ? '已打卡'
+                          : workingMealId === meal.meal_type
+                            ? '提交中...'
+                            : '完成打卡'}
                       </Button>
-                    </Link>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => handleCheckin(meal.meal_type)}
-                      disabled={workingMealId !== null}
-                    >
-                      {workingMealId === meal.meal_type ? '提交中...' : '已完成'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => handleFavorite(meal.id)}
-                      disabled={workingMealId !== null}
-                    >
-                      {workingMealId === meal.id ? '处理中...' : '收藏'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => handleSwap(meal.id)}
-                      disabled={workingMealId !== null}
-                    >
-                      {workingMealId === meal.id ? '替换中...' : '换一份'}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => handleFavorite(meal.id)}
+                        disabled={workingMealId !== null}
+                      >
+                        {workingMealId === meal.id ? '处理中...' : '收藏'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => handleSwap(meal.id)}
+                        disabled={workingMealId !== null}
+                      >
+                        {workingMealId === meal.id ? '替换中...' : '换一份'}
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
             </section>
           ))}
         </div>
@@ -345,4 +436,30 @@ function getGenerationClassName(mode: RecipeGenerationMeta['mode']) {
   if (mode === 'ai') return 'status-ok';
   if (mode === 'mock') return 'status-warning';
   return '';
+}
+
+function getMealCheckin(entries: CheckinEntry[], mealType: MealType) {
+  return entries.find((entry) => entry.meal_type === mealType) ?? null;
+}
+
+function getCheckinClassName(status: CheckinEntry['status']) {
+  if (status === 'completed') return 'status-ok';
+  if (status === 'partial') return 'status-warning';
+  return 'status-danger';
+}
+
+function formatCheckinStatus(status: CheckinEntry['status']) {
+  if (status === 'completed') return '已打卡';
+  if (status === 'partial') return '部分完成';
+  return '已跳过';
+}
+
+function buildMealPhotoLink(mealType: MealType, date: string) {
+  const params = new URLSearchParams({
+    meal_type: mealType,
+    date,
+    return_to: '/recipe/today',
+    source: 'recipe',
+  });
+  return `/food-analysis?${params.toString()}`;
 }

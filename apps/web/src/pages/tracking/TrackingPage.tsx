@@ -14,6 +14,8 @@ type CheckinEntry = {
   date: string;
   meal_type: string;
   status: 'completed' | 'skipped' | 'partial';
+  calories?: number;
+  note?: string;
 };
 
 const MEALS: Array<CheckinEntry['meal_type']> = ['早餐', '午餐', '晚餐', '加餐'];
@@ -138,9 +140,11 @@ export default function TrackingPage() {
           <h2>今日餐次打卡</h2>
           <div className="quick-grid">
             {MEALS.map((meal) => {
-              const completed = todayCheckins.some(
-                (entry) => entry.meal_type === meal && entry.status === 'completed',
-              );
+              const completedEntry =
+                todayCheckins.find(
+                  (entry) => entry.meal_type === meal && entry.status === 'completed',
+                ) ?? null;
+              const completed = Boolean(completedEntry);
               return (
                 <button
                   key={meal}
@@ -157,7 +161,9 @@ export default function TrackingPage() {
                   <strong>{meal}</strong>
                   <p className="muted" style={{ marginBottom: 0 }}>
                     {completed
-                      ? '今天已完成'
+                      ? completedEntry?.calories
+                        ? `已记录 ${completedEntry.calories} kcal`
+                        : '今天已完成'
                       : checkingInMeal === meal
                         ? '提交中...'
                         : '点击完成打卡'}
@@ -198,8 +204,20 @@ export default function TrackingPage() {
             <ul className="list-reset">
               {todayCheckins.map((entry) => (
                 <li key={`${entry.date}-${entry.meal_type}`} className="table-like-row">
-                  <span>{entry.meal_type}</span>
-                  <span className="pill status-ok">{entry.status}</span>
+                  <div className="stack" style={{ gap: 4 }}>
+                    <span>{entry.meal_type}</span>
+                    {entry.note ? (
+                      <span className="muted" style={{ fontSize: 14 }}>
+                        {entry.note}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="stack" style={{ gap: 6, justifyItems: 'end' }}>
+                    <span className="pill status-ok">{entry.status}</span>
+                    {typeof entry.calories === 'number' ? (
+                      <strong>{entry.calories} kcal</strong>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

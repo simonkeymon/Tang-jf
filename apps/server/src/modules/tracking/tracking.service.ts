@@ -20,6 +20,8 @@ export interface MealCheckinRecord {
   date: string;
   meal_type: MealCheckinType;
   status: MealCheckinStatus;
+  calories?: number;
+  note?: string;
 }
 
 export interface TrackingService {
@@ -70,6 +72,8 @@ export function createTrackingService(): TrackingService & { hydrate?(): Promise
           date: record.date,
           meal_type: record.meal_type as MealCheckinType,
           status: record.status as MealCheckinStatus,
+          calories: typeof record.calories === 'number' ? record.calories : undefined,
+          note: record.note ?? undefined,
         });
         current.sort(
           (a, b) => a.date.localeCompare(b.date) || a.meal_type.localeCompare(b.meal_type),
@@ -103,7 +107,18 @@ export function createTrackingService(): TrackingService & { hydrate?(): Promise
 
     upsertCheckin(userId, input) {
       const existing = checkinsByUser.get(userId) ?? [];
-      const nextEntry: MealCheckinRecord = { user_id: userId, ...input };
+      const currentEntry =
+        existing.find(
+          (entry) => entry.date === input.date && entry.meal_type === input.meal_type,
+        ) ?? null;
+      const nextEntry: MealCheckinRecord = {
+        user_id: userId,
+        date: input.date,
+        meal_type: input.meal_type,
+        status: input.status,
+        calories: input.calories ?? currentEntry?.calories,
+        note: input.note ?? currentEntry?.note,
+      };
       const updated = existing.filter(
         (entry) => !(entry.date === input.date && entry.meal_type === input.meal_type),
       );
@@ -208,6 +223,8 @@ function persistCheckin(entry: MealCheckinRecord) {
       date: entry.date,
       meal_type: entry.meal_type,
       status: entry.status,
+      calories: entry.calories,
+      note: entry.note,
     });
   })();
 }

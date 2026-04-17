@@ -84,6 +84,42 @@ describe('Tracking endpoints', () => {
     expect(res.body.streak).toBe(2);
   });
 
+  it('stores meal calories and note while preserving them across later check-ins', async () => {
+    const app = createTestApp();
+    const token = await registerAndGetToken(app, 'track-detail@example.com');
+    const today = new Date().toISOString().slice(0, 10);
+
+    await request(app).post('/api/tracking/checkin').set('Authorization', `Bearer ${token}`).send({
+      date: today,
+      meal_type: '午餐',
+      status: 'completed',
+      calories: 620,
+      note: '米饭（1碗）、鸡胸肉（150克）',
+    });
+
+    await request(app).post('/api/tracking/checkin').set('Authorization', `Bearer ${token}`).send({
+      date: today,
+      meal_type: '午餐',
+      status: 'completed',
+    });
+
+    const res = await request(app)
+      .get('/api/tracking/checkin/today')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          meal_type: '午餐',
+          status: 'completed',
+          calories: 620,
+          note: '米饭（1碗）、鸡胸肉（150克）',
+        }),
+      ]),
+    );
+  });
+
   it('resets streak after a non-qualifying day gap', async () => {
     const app = createTestApp();
     const token = await registerAndGetToken(app, 'track-reset@example.com');

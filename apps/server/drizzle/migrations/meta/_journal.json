@@ -15,6 +15,13 @@
       "when": 1776369529397,
       "tag": "0001_expand_ai_text_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776409800000,
+      "tag": "0002_add_meal_checkin_metadata",
+      "breakpoints": true
     }
   ]
 }

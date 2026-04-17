@@ -1,4 +1,4 @@
-import { pgTable, real, varchar } from 'drizzle-orm/pg-core';
+import { integer, pgTable, real, varchar } from 'drizzle-orm/pg-core';
 
 import { users } from './users.js';
 
@@ -20,4 +20,6 @@ export const meal_check_ins = pgTable('meal_check_ins', {
   date: varchar('date', { length: 10 }).notNull(),
   meal_type: varchar('meal_type', { length: 50 }).notNull(),
   status: varchar('status', { length: 32 }).notNull(),
+  calories: integer('calories'),
+  note: varchar('note', { length: 1000 }),
 });

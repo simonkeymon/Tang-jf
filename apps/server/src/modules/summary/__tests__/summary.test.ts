@@ -74,6 +74,51 @@ describe('Summary endpoints', () => {
     expect(res.body.summary.ai_feedback).toContain('没关系');
   });
 
+  it('prefers recorded meal calories when AI meal records are available', async () => {
+    const app = createTestApp();
+    const token = await registerAndGetToken(app, 'summary-calories@example.com');
+    const date = '2026-04-15';
+
+    await request(app).put('/api/user/profile').set('Authorization', `Bearer ${token}`).send({
+      gender: 'male',
+      age: 30,
+      height_cm: 175,
+      weight_kg: 80,
+      goal: 'maintain',
+      activity_level: 'moderately_active',
+      dietary_restrictions: [],
+      allergies: [],
+    });
+
+    await request(app).post('/api/plan/generate').set('Authorization', `Bearer ${token}`);
+    await request(app)
+      .post('/api/recipe/generate-daily')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date });
+    await request(app).post('/api/tracking/checkin').set('Authorization', `Bearer ${token}`).send({
+      date,
+      meal_type: '早餐',
+      status: 'completed',
+      calories: 420,
+      note: '燕麦、鸡蛋、牛奶',
+    });
+    await request(app).post('/api/tracking/checkin').set('Authorization', `Bearer ${token}`).send({
+      date,
+      meal_type: '午餐',
+      status: 'completed',
+      calories: 680,
+      note: '米饭、鸡胸肉、西兰花',
+    });
+
+    const res = await request(app)
+      .post('/api/summary/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date });
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.actual_vs_target_calories.actual).toBe(1100);
+  });
+
   it('returns today summary after generation', async () => {
     const app = createTestApp();
     const token = await registerAndGetToken(app, 'summary-today@example.com');
